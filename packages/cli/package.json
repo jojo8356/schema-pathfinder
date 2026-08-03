@@ -1,0 +1,11 @@
+{
+  "name": "@schema-pathfinder/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "schema-pathfinder": "./src/main.ts"
+  },
+  "dependencies": {
+    "@schema-pathfinder/core": "workspace:*"
+  }
+}
