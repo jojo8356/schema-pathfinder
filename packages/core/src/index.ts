@@ -4,6 +4,7 @@ export {
   mapPostgresForeignKeyRow,
   postgresForeignKeyMetadataSql
 } from "./postgres_fk_metadata.mjs";
+export { findPaths } from "./path_search.mjs";
 
 export type OutputFormat = "text" | "equation" | "json" | "sql" | "mermaid";
 
