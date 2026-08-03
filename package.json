@@ -17,7 +17,6 @@
     "node": ">=22"
   },
   "devDependencies": {
-    "@schema-pathfinder/api": "workspace:*",
     "@schema-pathfinder/core": "workspace:*"
   }
 }

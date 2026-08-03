@@ -37,7 +37,6 @@ Without `--fixture`, the CLI reads PostgreSQL metadata directly through `DATABAS
 
 - `apps/cli-rust`: Rust CLI and Rust local/admin API binary.
 - `packages/core`: TypeScript pathfinding engine, scoring, and renderers.
-- `apps/api`: legacy NestJS adapter kept out of CLI/Desktop packaging.
 - `apps/web`: React web UI.
 - `apps/desktop`: Rust/Slint desktop UI.
 

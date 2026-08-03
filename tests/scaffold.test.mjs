@@ -8,7 +8,6 @@ describe("schema-pathfinder scaffold", () => {
       "apps/cli-rust",
       "packages/core",
       "packages/contracts",
-      "apps/api",
       "apps/web",
       "apps/desktop",
       "fixtures/postgres",

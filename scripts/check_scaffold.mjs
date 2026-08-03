@@ -5,7 +5,6 @@ const requiredPaths = [
   "packages/contracts/src/index.ts",
   "apps/cli-rust/src/main.rs",
   "apps/cli-rust/src/bin/schema-pathfinder-api.rs",
-  "apps/api/src/main.ts",
   "apps/web/src/main.tsx",
   "apps/desktop/src/main.rs",
   "fixtures/postgres/dressshot_seed_fk_edges.json",
