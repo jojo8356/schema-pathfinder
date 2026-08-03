@@ -6,6 +6,14 @@ export {
 } from "./postgres_fk_metadata.mjs";
 export { findPaths } from "./path_search.mjs";
 export { rankPaths, scorePath, scoringRules } from "./scoring.mjs";
+export {
+  renderEquation,
+  renderJson,
+  renderMermaid,
+  renderPath,
+  renderSql,
+  renderText
+} from "./renderers.mjs";
 
 export type OutputFormat = "text" | "equation" | "json" | "sql" | "mermaid";
 
