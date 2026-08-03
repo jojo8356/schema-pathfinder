@@ -1,4 +1,5 @@
 import { createSchemaGraph, resolveTable, tableKey } from "./graph.mjs";
+import { rankPaths, scorePath } from "./scoring.mjs";
 
 export function findPaths(input) {
   const graph = createSchemaGraph(input.edges);
@@ -44,12 +45,12 @@ export function findPaths(input) {
   const queue = [{ current: source, edges: [] }];
   const results = [];
 
-  while (queue.length > 0 && results.length < 3) {
+  while (queue.length > 0) {
     const item = queue.shift();
     const currentKey = tableKey(item.current);
 
     if (currentKey === targetKey) {
-      results.push(createPathResult(source, target, item.edges));
+      results.push(scorePath(source, target, item.edges));
       continue;
     }
 
@@ -91,19 +92,6 @@ export function findPaths(input) {
   return {
     source,
     target,
-    paths: results
-  };
-}
-
-function createPathResult(source, target, edges) {
-  const evidence = Array.from(new Set(edges.flatMap((edge) => edge.evidence)));
-
-  return {
-    source,
-    target,
-    score: 0,
-    length: edges.length,
-    evidence,
-    edges
+    paths: rankPaths(results)
   };
 }
