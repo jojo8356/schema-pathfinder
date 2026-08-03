@@ -3,8 +3,9 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
+import { formatList, parseOutputFormat } from "../../core/src/output_formats.mjs";
 import { findPaths } from "../../core/src/path_search.mjs";
-import { renderText } from "../../core/src/renderers.mjs";
+import { renderPath } from "../../core/src/renderers.mjs";
 
 export function runCli(argv, io = defaultIo()) {
   let exitCode = 0;
@@ -44,14 +45,23 @@ export function createProgram(io = defaultIo()) {
     .description("Find a declared FK path between two tables")
     .argument("<source-table>", "source table")
     .argument("<target-table>", "target table")
-    .action((sourceTable, targetTable) => {
-      executePathCommand(sourceTable, targetTable, io);
+    .option("--format <format>", "output format", "text")
+    .action((sourceTable, targetTable, options) => {
+      executePathCommand(sourceTable, targetTable, options, io);
     });
 
   return program;
 }
 
-function executePathCommand(sourceTable, targetTable, io) {
+function executePathCommand(sourceTable, targetTable, options, io) {
+  const parsedFormat = parseOutputFormat(options.format);
+
+  if (parsedFormat.success === false) {
+    io.stderr(`Unsupported format: ${options.format}\n`);
+    io.stderr(`Supported formats: ${formatList()}\n`);
+    throw Object.assign(new Error("Unsupported format"), { exitCode: 1 });
+  }
+
   const fixture = JSON.parse(readFileSync("fixtures/postgres/dressshot_seed_fk_edges.json", "utf8"));
   const result = findPaths({
     edges: fixture.edges,
@@ -64,7 +74,7 @@ function executePathCommand(sourceTable, targetTable, io) {
     return 0;
   }
 
-  io.stdout(`${renderText(result.paths[0])}\n`);
+  io.stdout(`${renderPath(result.paths[0], parsedFormat.data)}\n`);
 }
 
 function defaultIo() {

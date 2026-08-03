@@ -1,3 +1,13 @@
+import { formatList, parseOutputFormat } from "./output_formats.mjs";
+
+const rendererRegistry = {
+  text: renderText,
+  equation: renderEquation,
+  json: renderPathJson,
+  sql: renderSql,
+  mermaid: renderMermaid
+};
+
 export function renderText(path, index = 0) {
   const tablePath = [path.source.table];
 
@@ -66,29 +76,19 @@ export function renderMermaid(path) {
 }
 
 export function renderPath(path, format) {
-  if (format === "text") {
-    return renderText(path);
+  const parsed = parseOutputFormat(format);
+
+  if (parsed.success === false) {
+    throw new Error(`Unsupported output format: ${format}. Supported formats: ${formatList()}`);
   }
 
-  if (format === "equation") {
-    return renderEquation(path);
-  }
-
-  if (format === "sql") {
-    return renderSql(path);
-  }
-
-  if (format === "mermaid") {
-    return renderMermaid(path);
-  }
-
-  if (format === "json") {
-    return JSON.stringify(path, null, 2);
-  }
-
-  throw new Error(`Unsupported output format: ${format}`);
+  return rendererRegistry[parsed.data](path);
 }
 
 function quoteIdentifier(identifier) {
   return `"${identifier.replaceAll("\"", "\"\"")}"`;
+}
+
+function renderPathJson(path) {
+  return JSON.stringify(path, null, 2);
 }

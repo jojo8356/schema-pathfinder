@@ -46,4 +46,31 @@ describe("CLI command skeleton", () => {
     assert.equal(exitCode, 1);
     assert.match(output.stderr, /unknown command 'inspect'/);
   });
+
+  it("prints equation output with format flag", () => {
+    const { io, output } = createIo();
+    const exitCode = runCli(["path", "ClothingItem", "User", "--format", "equation"], io);
+
+    assert.equal(exitCode, 0);
+    assert.match(output.stdout, /ClothingItem\.clothingSessionId = ClothingSession\.id/);
+    assert.match(output.stdout, / -> /);
+  });
+
+  it("prints SQL output with format flag", () => {
+    const { io, output } = createIo();
+    const exitCode = runCli(["path", "ClothingItem", "User", "--format", "sql"], io);
+
+    assert.equal(exitCode, 0);
+    assert.match(output.stdout, /from "ClothingItem" t0/);
+    assert.match(output.stdout, /limit 50;/);
+  });
+
+  it("exits non-zero for unsupported format", () => {
+    const { io, output } = createIo();
+    const exitCode = runCli(["path", "ClothingItem", "User", "--format", "xml"], io);
+
+    assert.equal(exitCode, 1);
+    assert.match(output.stderr, /Unsupported format: xml/);
+    assert.match(output.stderr, /Supported formats: text, equation, json, sql, mermaid/);
+  });
 });

@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@dagrejs/graphlib": "4.0.1",
-    "@schema-pathfinder/contracts": "workspace:*"
+    "@schema-pathfinder/contracts": "workspace:*",
+    "zod": "4.4.3"
   }
 }

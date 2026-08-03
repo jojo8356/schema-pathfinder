@@ -11,6 +11,7 @@ export {
   postgresForeignKeyMetadataSql
 } from "./postgres_fk_metadata.mjs";
 export { findPaths } from "./path_search.mjs";
+export { formatList, outputFormatSchema, outputFormats, parseOutputFormat } from "./output_formats.mjs";
 export { rankPaths, scorePath, scoringRules } from "./scoring.mjs";
 export {
   renderEquation,
