@@ -7,6 +7,7 @@
   },
   "exports": {
     ".": "./src/main.mjs",
+    "./api_client": "./src/api_client.mjs",
     "./load_edges": "./src/load_edges.mjs",
     "./main": "./src/main.mjs"
   },

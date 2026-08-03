@@ -102,4 +102,51 @@ describe("CLI command skeleton", () => {
     assert.match(output.stderr, /DB_CONFIG_MISSING/);
     assert.doesNotMatch(output.stderr, /postgres:\/\//);
   });
+
+  it("can call the API in explicit sync mode", async () => {
+    const { io, output } = createIo();
+    const originalFetch = globalThis.fetch;
+    const calls = [];
+
+    globalThis.fetch = async (url, options) => {
+      calls.push({ url, options });
+
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            rendered: "ClothingItem.clothingSessionId = ClothingSession.id",
+            paths: []
+          };
+        }
+      };
+    };
+
+    try {
+      const exitCode = await runCli(
+        [
+          "path",
+          "ClothingItem",
+          "User",
+          "--format",
+          "equation",
+          "--api-url",
+          "https://api.example.test"
+        ],
+        io,
+        {
+          SCHEMA_PATHFINDER_ADMIN_TOKEN: "admin-token"
+        }
+      );
+
+      assert.equal(exitCode, 0);
+      assert.equal(output.stdout, "ClothingItem.clothingSessionId = ClothingSession.id\n");
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url, "https://api.example.test/admin/pathfinder/path");
+      assert.equal(calls[0].options.headers["x-schema-pathfinder-admin-token"], "admin-token");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

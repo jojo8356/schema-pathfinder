@@ -5,6 +5,7 @@ import { Command } from "commander";
 import { formatList, parseOutputFormat } from "@schema-pathfinder/core/output_formats";
 import { findPaths } from "@schema-pathfinder/core/path_search";
 import { renderPath } from "@schema-pathfinder/core/renderers";
+import { fetchPathFromApi } from "./api_client.mjs";
 import { loadEdges } from "./load_edges.mjs";
 
 export async function runCli(argv, io = defaultIo(), env = process.env) {
@@ -50,6 +51,8 @@ export function createProgram(io = defaultIo(), env = process.env) {
     .argument("<target-table>", "target table")
     .option("--format <format>", "output format", "text")
     .option("--fixture <path>", "load FK metadata from a fixture file")
+    .option("--api-url <url>", "call a running schema-pathfinder API instead of local metadata loading")
+    .option("--admin-token <token>", "admin token for API sync mode")
     .action(async (sourceTable, targetTable, options) => {
       await executePathCommand(sourceTable, targetTable, options, io, env);
     });
@@ -66,6 +69,36 @@ async function executePathCommand(sourceTable, targetTable, options, io, env) {
     throw Object.assign(new Error("Unsupported format"), { exitCode: 1 });
   }
 
+  const apiUrl = resolveApiUrl(options, env);
+
+  if (apiUrl !== undefined) {
+    const apiResult = await fetchPathFromApi({
+      apiUrl,
+      adminToken: resolveAdminToken(options, env),
+      sourceTable,
+      targetTable,
+      format: parsedFormat.data
+    });
+
+    if (apiResult.error !== undefined) {
+      io.stderr(`${apiResult.error.code}: ${apiResult.error.title}\n`);
+      throw Object.assign(new Error(apiResult.error.title), { exitCode: 1 });
+    }
+
+    if (apiResult.rendered !== undefined) {
+      io.stdout(`${apiResult.rendered}\n`);
+      return 0;
+    }
+
+    if (apiResult.noPathReason !== undefined) {
+      io.stdout(`${apiResult.noPathReason}\n`);
+      return 0;
+    }
+
+    io.stderr("API_RESPONSE_INVALID: API response did not contain a rendered path\n");
+    throw Object.assign(new Error("Invalid API response"), { exitCode: 1 });
+  }
+
   const edges = await loadEdges(options, env);
   const result = findPaths({
     edges,
@@ -79,6 +112,30 @@ async function executePathCommand(sourceTable, targetTable, options, io, env) {
   }
 
   io.stdout(`${renderPath(result.paths[0], parsedFormat.data)}\n`);
+}
+
+function resolveApiUrl(options, env) {
+  if (options.apiUrl !== undefined && options.apiUrl.length > 0) {
+    return options.apiUrl;
+  }
+
+  if (env.SCHEMA_PATHFINDER_API_URL !== undefined && env.SCHEMA_PATHFINDER_API_URL.length > 0) {
+    return env.SCHEMA_PATHFINDER_API_URL;
+  }
+
+  return undefined;
+}
+
+function resolveAdminToken(options, env) {
+  if (options.adminToken !== undefined && options.adminToken.length > 0) {
+    return options.adminToken;
+  }
+
+  if (env.SCHEMA_PATHFINDER_ADMIN_TOKEN !== undefined && env.SCHEMA_PATHFINDER_ADMIN_TOKEN.length > 0) {
+    return env.SCHEMA_PATHFINDER_ADMIN_TOKEN;
+  }
+
+  return undefined;
 }
 
 function defaultIo() {
