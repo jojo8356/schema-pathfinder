@@ -1,4 +1,4 @@
-import { createSchemaGraph, resolveTable, tableKey } from "./graph.mjs";
+import { createSchemaGraph, outgoingEdges, resolveTable, tableKey } from "./graph.mjs";
 import { rankPaths, scorePath } from "./scoring.mjs";
 
 export function findPaths(input) {
@@ -58,11 +58,7 @@ export function findPaths(input) {
       continue;
     }
 
-    let nextEdges = graph.adjacency.get(currentKey);
-
-    if (nextEdges === undefined) {
-      nextEdges = [];
-    }
+    const nextEdges = outgoingEdges(graph, item.current);
 
     for (const edge of nextEdges) {
       const alreadyVisited = item.edges.some((visitedEdge) => {

@@ -1,7 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createSchemaGraph, resolveTable, tableKey } from "../packages/core/src/graph.mjs";
+import {
+  createSchemaGraph,
+  outgoingEdges,
+  resolveTable,
+  tableKey
+} from "../packages/core/src/graph.mjs";
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -14,8 +19,10 @@ describe("core graph", () => {
 
     assert.equal(graph.edges.length, 3);
     assert.equal(graph.nodes.size, 4);
-    assert.equal(graph.adjacency.get("public.ClothingItem").length, 1);
-    assert.equal(graph.adjacency.get("public.User").length, 0);
+    assert.equal(graph.graph.isDirected(), true);
+    assert.equal(graph.graph.isMultigraph(), true);
+    assert.equal(outgoingEdges(graph, { schema: "public", table: "ClothingItem" }).length, 1);
+    assert.equal(outgoingEdges(graph, { schema: "public", table: "User" }).length, 0);
   });
 
   it("resolves Prisma-style table names with capitals", () => {

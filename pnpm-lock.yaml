@@ -1,0 +1,52 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .: {}
+
+  apps/api:
+    dependencies:
+      '@schema-pathfinder/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+
+  apps/web: {}
+
+  packages/cli:
+    dependencies:
+      '@schema-pathfinder/core':
+        specifier: workspace:*
+        version: link:../core
+      commander:
+        specifier: 15.0.0
+        version: 15.0.0
+
+  packages/contracts: {}
+
+  packages/core:
+    dependencies:
+      '@dagrejs/graphlib':
+        specifier: 4.0.1
+        version: 4.0.1
+      '@schema-pathfinder/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+packages:
+
+  '@dagrejs/graphlib@4.0.1':
+    resolution: {integrity: sha512-IvcV6FduIIAmLwnH+yun+QtV36SC7mERqa86aClNqmMN09WhmPPYU8ckHrZBozErf+UvHPWOTJYaGYiIcs0DgA==}
+
+  commander@15.0.0:
+    resolution: {integrity: sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg==}
+    engines: {node: '>=22.12.0'}
+
+snapshots:
+
+  '@dagrejs/graphlib@4.0.1': {}
+
+  commander@15.0.0: {}

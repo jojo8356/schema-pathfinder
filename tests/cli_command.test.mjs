@@ -36,8 +36,7 @@ describe("CLI command skeleton", () => {
     const exitCode = runCli(["path", "ClothingItem"], io);
 
     assert.equal(exitCode, 1);
-    assert.match(output.stderr, /Missing source or target table/);
-    assert.match(output.stderr, /Usage: schema-pathfinder path <source-table> <target-table>/);
+    assert.match(output.stderr, /missing required argument 'target-table'/);
   });
 
   it("exits non-zero for unsupported command", () => {
@@ -45,6 +44,6 @@ describe("CLI command skeleton", () => {
     const exitCode = runCli(["inspect", "ClothingItem", "User"], io);
 
     assert.equal(exitCode, 1);
-    assert.match(output.stderr, /Expected command: path/);
+    assert.match(output.stderr, /unknown command 'inspect'/);
   });
 });

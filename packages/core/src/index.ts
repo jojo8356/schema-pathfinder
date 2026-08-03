@@ -1,4 +1,10 @@
-export { createSchemaGraph, createTableIdentifier, resolveTable, tableKey } from "./graph.mjs";
+export {
+  createSchemaGraph,
+  createTableIdentifier,
+  outgoingEdges,
+  resolveTable,
+  tableKey
+} from "./graph.mjs";
 export {
   discoverPostgresForeignKeys,
   mapPostgresForeignKeyRow,

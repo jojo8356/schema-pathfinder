@@ -2,20 +2,56 @@
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { Command } from "commander";
 import { findPaths } from "../../core/src/path_search.mjs";
 import { renderText } from "../../core/src/renderers.mjs";
 
 export function runCli(argv, io = defaultIo()) {
-  const [command, sourceTable, targetTable] = argv;
+  let exitCode = 0;
+  const program = createProgram(io);
 
-  if (command !== "path") {
-    return usage(io, "Expected command: path");
+  try {
+    program.parse(argv, { from: "user" });
+  } catch (error) {
+    if (typeof error.exitCode === "number") {
+      exitCode = error.exitCode;
+    } else {
+      throw error;
+    }
   }
 
-  if (sourceTable === undefined || targetTable === undefined) {
-    return usage(io, "Missing source or target table");
-  }
+  return exitCode;
+}
 
+export function createProgram(io = defaultIo()) {
+  const program = new Command();
+
+  program
+    .name("schema-pathfinder")
+    .description("Find declared PostgreSQL FK paths between tables")
+    .exitOverride()
+    .configureOutput({
+      writeOut(value) {
+        io.stdout(value);
+      },
+      writeErr(value) {
+        io.stderr(value);
+      }
+    });
+
+  program
+    .command("path")
+    .description("Find a declared FK path between two tables")
+    .argument("<source-table>", "source table")
+    .argument("<target-table>", "target table")
+    .action((sourceTable, targetTable) => {
+      executePathCommand(sourceTable, targetTable, io);
+    });
+
+  return program;
+}
+
+function executePathCommand(sourceTable, targetTable, io) {
   const fixture = JSON.parse(readFileSync("fixtures/postgres/dressshot_seed_fk_edges.json", "utf8"));
   const result = findPaths({
     edges: fixture.edges,
@@ -29,12 +65,6 @@ export function runCli(argv, io = defaultIo()) {
   }
 
   io.stdout(`${renderText(result.paths[0])}\n`);
-  return 0;
-}
-
-function usage(io, message) {
-  io.stderr(`${message}\n\nUsage: schema-pathfinder path <source-table> <target-table>\n`);
-  return 1;
 }
 
 function defaultIo() {

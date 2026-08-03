@@ -1,3 +1,5 @@
+import { Graph } from "@dagrejs/graphlib";
+
 export function createTableIdentifier(schema, table) {
   return { schema, table };
 }
@@ -8,7 +10,7 @@ export function tableKey(identifier) {
 
 export function createSchemaGraph(edges) {
   const nodes = new Map();
-  const adjacency = new Map();
+  const graph = new Graph({ directed: true, multigraph: true });
 
   for (const edge of edges) {
     const fromKey = tableKey(edge.from);
@@ -16,23 +18,26 @@ export function createSchemaGraph(edges) {
 
     nodes.set(fromKey, edge.from);
     nodes.set(toKey, edge.to);
-
-    if (!adjacency.has(fromKey)) {
-      adjacency.set(fromKey, []);
-    }
-
-    if (!adjacency.has(toKey)) {
-      adjacency.set(toKey, []);
-    }
-
-    adjacency.get(fromKey).push(edge);
+    graph.setNode(fromKey, edge.from);
+    graph.setNode(toKey, edge.to);
+    graph.setEdge(fromKey, toKey, edge, edge.constraintName);
   }
 
   return {
+    graph,
     nodes,
-    adjacency,
     edges
   };
+}
+
+export function outgoingEdges(schemaGraph, identifier) {
+  const rawEdges = schemaGraph.graph.outEdges(tableKey(identifier));
+
+  if (rawEdges === undefined) {
+    return [];
+  }
+
+  return rawEdges.map((rawEdge) => schemaGraph.graph.edge(rawEdge));
 }
 
 export function resolveTable(graph, tableName, schema = "public") {

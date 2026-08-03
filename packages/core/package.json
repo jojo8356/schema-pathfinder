@@ -6,6 +6,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@dagrejs/graphlib": "4.0.1",
     "@schema-pathfinder/contracts": "workspace:*"
   }
 }

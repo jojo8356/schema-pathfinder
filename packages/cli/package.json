@@ -6,6 +6,7 @@
     "schema-pathfinder": "./src/main.mjs"
   },
   "dependencies": {
-    "@schema-pathfinder/core": "workspace:*"
+    "@schema-pathfinder/core": "workspace:*",
+    "commander": "15.0.0"
   }
 }
