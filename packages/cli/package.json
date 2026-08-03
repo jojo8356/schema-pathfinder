@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "schema-pathfinder": "./src/main.ts"
+    "schema-pathfinder": "./src/main.mjs"
   },
   "dependencies": {
     "@schema-pathfinder/core": "workspace:*"
