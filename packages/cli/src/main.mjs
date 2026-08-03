@@ -1,21 +1,24 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { formatList, parseOutputFormat } from "../../core/src/output_formats.mjs";
 import { findPaths } from "../../core/src/path_search.mjs";
 import { renderPath } from "../../core/src/renderers.mjs";
+import { loadEdges } from "./load_edges.mjs";
 
-export function runCli(argv, io = defaultIo()) {
+export async function runCli(argv, io = defaultIo(), env = process.env) {
   let exitCode = 0;
-  const program = createProgram(io);
+  const program = createProgram(io, env);
 
   try {
-    program.parse(argv, { from: "user" });
+    await program.parseAsync(argv, { from: "user" });
   } catch (error) {
     if (typeof error.exitCode === "number") {
       exitCode = error.exitCode;
+      if (error.code !== undefined && error.message.length > 0) {
+        io.stderr(`${error.code}: ${error.message}\n`);
+      }
     } else {
       throw error;
     }
@@ -24,7 +27,7 @@ export function runCli(argv, io = defaultIo()) {
   return exitCode;
 }
 
-export function createProgram(io = defaultIo()) {
+export function createProgram(io = defaultIo(), env = process.env) {
   const program = new Command();
 
   program
@@ -46,14 +49,15 @@ export function createProgram(io = defaultIo()) {
     .argument("<source-table>", "source table")
     .argument("<target-table>", "target table")
     .option("--format <format>", "output format", "text")
-    .action((sourceTable, targetTable, options) => {
-      executePathCommand(sourceTable, targetTable, options, io);
+    .option("--fixture <path>", "load FK metadata from a fixture file")
+    .action(async (sourceTable, targetTable, options) => {
+      await executePathCommand(sourceTable, targetTable, options, io, env);
     });
 
   return program;
 }
 
-function executePathCommand(sourceTable, targetTable, options, io) {
+async function executePathCommand(sourceTable, targetTable, options, io, env) {
   const parsedFormat = parseOutputFormat(options.format);
 
   if (parsedFormat.success === false) {
@@ -62,9 +66,9 @@ function executePathCommand(sourceTable, targetTable, options, io) {
     throw Object.assign(new Error("Unsupported format"), { exitCode: 1 });
   }
 
-  const fixture = JSON.parse(readFileSync("fixtures/postgres/dressshot_seed_fk_edges.json", "utf8"));
+  const edges = await loadEdges(options, env);
   const result = findPaths({
-    edges: fixture.edges,
+    edges,
     sourceTable,
     targetTable
   });
@@ -89,6 +93,6 @@ function defaultIo() {
 }
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {
-  const exitCode = runCli(process.argv.slice(2));
+  const exitCode = await runCli(process.argv.slice(2));
   process.exit(exitCode);
 }
