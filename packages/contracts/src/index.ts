@@ -34,3 +34,11 @@ export interface PathfinderResult {
   paths: PathResult[];
   noPathReason?: string;
 }
+
+export interface SchemaGraph {
+  nodes: Map<string, TableIdentifier>;
+  adjacency: Map<string, ForeignKeyEdge[]>;
+  edges: ForeignKeyEdge[];
+}
+
+export type OutputFormat = "text" | "equation" | "json" | "sql" | "mermaid";
