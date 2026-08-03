@@ -2,8 +2,9 @@ import { existsSync } from "node:fs";
 
 const requiredPaths = [
   "packages/core/src/index.ts",
-  "packages/cli/src/main.ts",
   "packages/contracts/src/index.ts",
+  "apps/cli-rust/src/main.rs",
+  "apps/cli-rust/src/bin/schema-pathfinder-api.rs",
   "apps/api/src/main.ts",
   "apps/web/src/main.tsx",
   "apps/desktop/src/main.rs",

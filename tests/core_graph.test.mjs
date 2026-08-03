@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   createSchemaGraph,
+  listTablesFromEdges,
   outgoingEdges,
   resolveTable,
   tableKey
@@ -37,5 +38,20 @@ describe("core graph", () => {
 
   it("creates stable table keys", () => {
     assert.equal(tableKey({ schema: "public", table: "User" }), "public.User");
+  });
+
+  it("lists discovered tables once in stable order", () => {
+    const fixture = readJson("fixtures/postgres/dressshot_seed_fk_edges.json");
+    const tables = listTablesFromEdges(fixture.edges);
+
+    assert.deepEqual(
+      tables.map((table) => tableKey(table)),
+      [
+        "public.ClothingItem",
+        "public.ClothingSession",
+        "public.SellerProfile",
+        "public.User"
+      ]
+    );
   });
 });

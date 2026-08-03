@@ -1,6 +1,7 @@
 export {
   createSchemaGraph,
   createTableIdentifier,
+  listTablesFromEdges,
   outgoingEdges,
   resolveTable,
   tableKey

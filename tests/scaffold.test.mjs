@@ -5,8 +5,8 @@ import { existsSync, readFileSync } from "node:fs";
 describe("schema-pathfinder scaffold", () => {
   it("contains the standalone workspace structure", () => {
     const paths = [
+      "apps/cli-rust",
       "packages/core",
-      "packages/cli",
       "packages/contracts",
       "apps/api",
       "apps/web",

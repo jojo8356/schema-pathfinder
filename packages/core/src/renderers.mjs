@@ -34,7 +34,7 @@ export function renderText(path, index = 0) {
 export function renderEquation(path) {
   return path.edges
     .map((edge) => `${edge.from.table}.${edge.fromColumn} = ${edge.to.table}.${edge.toColumn}`)
-    .join(" -> ");
+    .join("\n-> ");
 }
 
 export function renderJson(result) {
@@ -91,4 +91,12 @@ function quoteIdentifier(identifier) {
 
 function renderPathJson(path) {
   return JSON.stringify(path, null, 2);
+}
+
+export function renderTables(tables) {
+  if (tables.length === 0) {
+    return "NO_TABLES";
+  }
+
+  return tables.map((table) => `${table.schema}.${table.table}`).join("\n");
 }

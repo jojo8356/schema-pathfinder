@@ -55,3 +55,21 @@ export function resolveTable(graph, tableName, schema = "public") {
 
   return undefined;
 }
+
+export function listTablesFromEdges(edges) {
+  const tables = new Map();
+
+  for (const edge of edges) {
+    tables.set(tableKey(edge.from), edge.from);
+    tables.set(tableKey(edge.to), edge.to);
+  }
+
+  return Array.from(tables.values()).sort(compareTables);
+}
+
+function compareTables(left, right) {
+  const leftKey = tableKey(left);
+  const rightKey = tableKey(right);
+
+  return leftKey.localeCompare(rightKey);
+}

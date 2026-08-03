@@ -5,6 +5,9 @@
   "packageManager": "pnpm@11.1.2",
   "type": "module",
   "scripts": {
+    "build:appimage": "node scripts/build_appimage.mjs",
+    "build:deb": "node scripts/build_deb.mjs",
+    "build:packages": "node scripts/build_deb.mjs && node scripts/build_appimage.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:contracts": "node --test tests/contract_fixtures.test.mjs",
     "typecheck": "node scripts/check_scaffold.mjs",
@@ -15,7 +18,6 @@
   },
   "devDependencies": {
     "@schema-pathfinder/api": "workspace:*",
-    "@schema-pathfinder/cli": "workspace:*",
     "@schema-pathfinder/core": "workspace:*"
   }
 }

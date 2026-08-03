@@ -8,6 +8,7 @@ import {
   renderMermaid,
   renderPath,
   renderSql,
+  renderTables,
   renderText
 } from "@schema-pathfinder/core/renderers";
 
@@ -38,7 +39,17 @@ describe("shared renderers", () => {
   it("renders equation output chained by arrows", () => {
     assert.equal(
       renderEquation(firstFixturePath()),
-      "ClothingItem.clothingSessionId = ClothingSession.id -> ClothingSession.sellerProfileId = SellerProfile.id -> SellerProfile.userId = User.id"
+      "ClothingItem.clothingSessionId = ClothingSession.id\n-> ClothingSession.sellerProfileId = SellerProfile.id\n-> SellerProfile.userId = User.id"
+    );
+  });
+
+  it("renders table lists one table per line", () => {
+    assert.equal(
+      renderTables([
+        { schema: "public", table: "ClothingItem" },
+        { schema: "public", table: "User" }
+      ]),
+      "public.ClothingItem\npublic.User"
     );
   });
 
