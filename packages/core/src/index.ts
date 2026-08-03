@@ -1,4 +1,9 @@
 export { createSchemaGraph, createTableIdentifier, resolveTable, tableKey } from "./graph.mjs";
+export {
+  discoverPostgresForeignKeys,
+  mapPostgresForeignKeyRow,
+  postgresForeignKeyMetadataSql
+} from "./postgres_fk_metadata.mjs";
 
 export type OutputFormat = "text" | "equation" | "json" | "sql" | "mermaid";
 
