@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { loadEdges } from "../packages/cli/src/load_edges.mjs";
+import { loadEdges } from "@schema-pathfinder/cli/load_edges";
 
 describe("CLI edge loading", () => {
   it("loads FK metadata from explicit fixture", async () => {

@@ -4,7 +4,7 @@ import {
   discoverPostgresForeignKeys,
   mapPostgresForeignKeyRow,
   postgresForeignKeyMetadataSql
-} from "../packages/core/src/postgres_fk_metadata.mjs";
+} from "@schema-pathfinder/core/postgres_fk_metadata";
 
 describe("PostgreSQL FK metadata discovery", () => {
   it("uses catalog tables only and does not query application rows", () => {

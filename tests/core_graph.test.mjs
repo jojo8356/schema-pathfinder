@@ -6,7 +6,7 @@ import {
   outgoingEdges,
   resolveTable,
   tableKey
-} from "../packages/core/src/graph.mjs";
+} from "@schema-pathfinder/core/graph";
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createPathfinderService } from "../apps/api/src/pathfinder/pathfinder_service.mjs";
+import { createPathfinderService } from "@schema-pathfinder/api/pathfinder_service";
 
 function fixtureLoader() {
   return async () => {

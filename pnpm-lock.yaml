@@ -6,7 +6,17 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      '@schema-pathfinder/api':
+        specifier: workspace:*
+        version: link:apps/api
+      '@schema-pathfinder/cli':
+        specifier: workspace:*
+        version: link:packages/cli
+      '@schema-pathfinder/core':
+        specifier: workspace:*
+        version: link:packages/core
 
   apps/api:
     dependencies:

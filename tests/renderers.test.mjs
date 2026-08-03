@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { findPaths } from "../packages/core/src/path_search.mjs";
+import { findPaths } from "@schema-pathfinder/core/path_search";
 import {
   renderEquation,
   renderJson,
@@ -9,7 +9,7 @@ import {
   renderPath,
   renderSql,
   renderText
-} from "../packages/core/src/renderers.mjs";
+} from "@schema-pathfinder/core/renderers";
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));

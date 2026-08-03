@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { formatList, outputFormats, parseOutputFormat } from "../packages/core/src/output_formats.mjs";
-import { renderPath } from "../packages/core/src/renderers.mjs";
+import { formatList, outputFormats, parseOutputFormat } from "@schema-pathfinder/core/output_formats";
+import { renderPath } from "@schema-pathfinder/core/renderers";
 
 describe("output format registry", () => {
   it("declares supported formats once", () => {

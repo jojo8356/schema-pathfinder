@@ -5,6 +5,11 @@
   "bin": {
     "schema-pathfinder": "./src/main.mjs"
   },
+  "exports": {
+    ".": "./src/main.mjs",
+    "./load_edges": "./src/load_edges.mjs",
+    "./main": "./src/main.mjs"
+  },
   "dependencies": {
     "@schema-pathfinder/core": "workspace:*",
     "commander": "15.0.0",

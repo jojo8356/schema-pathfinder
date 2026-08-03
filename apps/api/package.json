@@ -2,6 +2,10 @@
   "name": "@schema-pathfinder/api",
   "version": "0.1.0",
   "type": "module",
+  "exports": {
+    "./admin_local_guard": "./src/pathfinder/admin_local_guard.mjs",
+    "./pathfinder_service": "./src/pathfinder/pathfinder_service.mjs"
+  },
   "dependencies": {
     "@schema-pathfinder/core": "workspace:*",
     "@nestjs/common": "11.1.28",

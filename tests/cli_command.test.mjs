@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { runCli } from "../packages/cli/src/main.mjs";
+import { runCli } from "@schema-pathfinder/cli/main";
 
 function createIo() {
   const output = {

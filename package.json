@@ -12,5 +12,10 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@schema-pathfinder/api": "workspace:*",
+    "@schema-pathfinder/cli": "workspace:*",
+    "@schema-pathfinder/core": "workspace:*"
   }
 }

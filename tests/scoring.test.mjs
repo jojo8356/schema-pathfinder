@@ -1,8 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { findPaths } from "../packages/core/src/path_search.mjs";
-import { rankPaths, scorePath } from "../packages/core/src/scoring.mjs";
+import { findPaths } from "@schema-pathfinder/core/path_search";
+import { rankPaths, scorePath } from "@schema-pathfinder/core/scoring";
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
