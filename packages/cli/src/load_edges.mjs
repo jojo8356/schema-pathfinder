@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import pg from "pg";
-import { discoverPostgresForeignKeys } from "../../core/src/postgres_fk_metadata.mjs";
+import { discoverPostgresForeignKeys } from "@schema-pathfinder/core/postgres_fk_metadata";
 
 export async function loadEdges(options, env = process.env) {
   if (options.fixture !== undefined) {

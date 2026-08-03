@@ -2,9 +2,9 @@
 
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { formatList, parseOutputFormat } from "../../core/src/output_formats.mjs";
-import { findPaths } from "../../core/src/path_search.mjs";
-import { renderPath } from "../../core/src/renderers.mjs";
+import { formatList, parseOutputFormat } from "@schema-pathfinder/core/output_formats";
+import { findPaths } from "@schema-pathfinder/core/path_search";
+import { renderPath } from "@schema-pathfinder/core/renderers";
 import { loadEdges } from "./load_edges.mjs";
 
 export async function runCli(argv, io = defaultIo(), env = process.env) {

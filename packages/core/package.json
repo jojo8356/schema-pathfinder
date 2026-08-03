@@ -3,7 +3,13 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.mjs",
+    "./graph": "./src/graph.mjs",
+    "./output_formats": "./src/output_formats.mjs",
+    "./path_search": "./src/path_search.mjs",
+    "./postgres_fk_metadata": "./src/postgres_fk_metadata.mjs",
+    "./renderers": "./src/renderers.mjs",
+    "./scoring": "./src/scoring.mjs"
   },
   "dependencies": {
     "@dagrejs/graphlib": "4.0.1",
