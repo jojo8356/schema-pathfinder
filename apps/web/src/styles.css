@@ -41,7 +41,6 @@ button:hover { background: #f8fafc; }
 .inline-field { width: 260px; margin-left: auto; }
 .result-panel { flex: 1; min-height: 390px; display: flex; flex-direction: column; gap: 12px; }
 .result-box { flex: 1; margin: 0; border: 1px solid #e5e7eb; border-radius: 4px; padding: 12px; white-space: pre-wrap; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; }
-.status-line { position: fixed; right: 14px; bottom: 10px; display: inline-flex; gap: 6px; align-items: center; color: #6b7280; font-size: 12px; pointer-events: none; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 860px) {

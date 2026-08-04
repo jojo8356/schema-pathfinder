@@ -1,6 +1,6 @@
 use schema_pathfinder::pathfinder_core::{
-    best_path, load_schema_from_env_or_fixture, parse_format, render_path, PathfinderError,
-    SchemaMetadata,
+    best_path, discover_postgres_schema, load_schema_from_env_or_fixture, load_schema_from_fixture,
+    load_schema_from_sql, parse_format, render_path, PathfinderError, SchemaMetadata,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -18,12 +18,24 @@ struct ApiConfig {
 }
 
 #[derive(Debug, Deserialize)]
+struct SourceRequest {
+    #[serde(rename = "sourceKind")]
+    source_kind: String,
+    #[serde(rename = "sourceValue")]
+    source_value: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct PathRequest {
     #[serde(rename = "sourceTable")]
     source_table: String,
     #[serde(rename = "targetTable")]
     target_table: String,
     format: String,
+    #[serde(rename = "sourceKind")]
+    source_kind: String,
+    #[serde(rename = "sourceValue")]
+    source_value: String,
 }
 
 fn main() {
@@ -100,6 +112,10 @@ fn route_api_request(
         return list_tables_response(config);
     }
 
+    if request.method() == &Method::Post && is_tables_route(request.url()) {
+        return source_tables_response(request, config);
+    }
+
     if request.method() == &Method::Post && is_path_route(request.url()) {
         return path_response(request, config);
     }
@@ -122,23 +138,32 @@ fn list_tables_response(config: &ApiConfig) -> Response<std::io::Cursor<Vec<u8>>
     }
 }
 
-fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io::Cursor<Vec<u8>>> {
-    let mut body = String::new();
-
-    if let Err(error) = request.as_reader().read_to_string(&mut body) {
-        return json_response(
-            StatusCode(400),
-            error_json("REQUEST_READ_FAILED", &error.to_string()),
-        );
-    }
-
-    let path_request: PathRequest = match serde_json::from_str(&body) {
+fn source_tables_response(
+    request: &mut Request,
+    config: &ApiConfig,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let source_request: SourceRequest = match parse_json_body(request) {
         Ok(value) => value,
         Err(error) => {
-            return json_response(
-                StatusCode(400),
-                error_json("REQUEST_JSON_INVALID", &error.to_string()),
-            );
+            return json_response(StatusCode(400), error_json(error.code, &error.message));
+        }
+    };
+
+    match load_schema_for_source(
+        config,
+        &source_request.source_kind,
+        &source_request.source_value,
+    ) {
+        Ok(schema) => json_response(StatusCode(200), json!({ "tables": schema.tables })),
+        Err(error) => json_response(StatusCode(500), error_json(error.code, &error.message)),
+    }
+}
+
+fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io::Cursor<Vec<u8>>> {
+    let path_request: PathRequest = match parse_json_body(request) {
+        Ok(value) => value,
+        Err(error) => {
+            return json_response(StatusCode(400), error_json(error.code, &error.message));
         }
     };
 
@@ -149,7 +174,11 @@ fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io:
         }
     };
 
-    let schema = match load_schema(config) {
+    let schema = match load_schema_for_source(
+        config,
+        &path_request.source_kind,
+        &path_request.source_value,
+    ) {
         Ok(value) => value,
         Err(error) => {
             return json_response(StatusCode(500), error_json(error.code, &error.message));
@@ -193,8 +222,67 @@ fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io:
     }
 }
 
+fn parse_json_body<T: for<'de> Deserialize<'de>>(
+    request: &mut Request,
+) -> Result<T, PathfinderError> {
+    let mut body = String::new();
+
+    request
+        .as_reader()
+        .read_to_string(&mut body)
+        .map_err(|error| PathfinderError {
+            code: "REQUEST_READ_FAILED",
+            message: error.to_string(),
+        })?;
+
+    serde_json::from_str(&body).map_err(|error| PathfinderError {
+        code: "REQUEST_JSON_INVALID",
+        message: error.to_string(),
+    })
+}
+
 fn load_schema(config: &ApiConfig) -> Result<SchemaMetadata, PathfinderError> {
     load_schema_from_env_or_fixture(config.fixture.as_deref())
+}
+
+fn load_schema_for_source(
+    config: &ApiConfig,
+    source_kind: &str,
+    source_value: &str,
+) -> Result<SchemaMetadata, PathfinderError> {
+    let trimmed_value = source_value.trim();
+
+    if source_kind == "fixture" {
+        if trimmed_value.is_empty() {
+            return load_schema(config);
+        }
+
+        return load_schema_from_fixture(trimmed_value);
+    }
+
+    if source_kind == "sql" {
+        if trimmed_value.is_empty() {
+            return Err(PathfinderError {
+                code: "SQL_INPUT_MISSING",
+                message: "SQL source is missing".to_string(),
+            });
+        }
+
+        return load_schema_from_sql(trimmed_value);
+    }
+
+    if source_kind == "postgres" {
+        if trimmed_value.is_empty() {
+            return load_schema(config);
+        }
+
+        return discover_postgres_schema(trimmed_value);
+    }
+
+    Err(PathfinderError {
+        code: "SOURCE_KIND_UNSUPPORTED",
+        message: format!("Unsupported source kind: {}", source_kind),
+    })
 }
 
 fn static_response(request: &Request, config: &ApiConfig) -> Response<std::io::Cursor<Vec<u8>>> {

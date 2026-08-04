@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Database, GitBranch, Loader2, Search } from "lucide-react";
+import { Database, Loader2, Search } from "lucide-react";
 import "./styles.css";
 
 type TableIdentifier = {
@@ -10,6 +10,11 @@ type TableIdentifier = {
 
 type TablesResponse = {
   tables: TableIdentifier[];
+};
+
+type SourcePayload = {
+  sourceKind: SourceKind;
+  sourceValue: string;
 };
 
 type PathResponse = {
@@ -42,7 +47,6 @@ function App() {
   const [targetTable, setTargetTable] = useState("");
   const [format, setFormat] = useState<OutputFormat>("equation");
   const [output, setOutput] = useState("");
-  const [status, setStatus] = useState("Ready");
   const [loading, setLoading] = useState(false);
 
   const schemas = useMemo(() => {
@@ -92,15 +96,18 @@ function App() {
 
   async function loadTables() {
     setLoading(true);
-    setStatus("Loading schema metadata");
 
     try {
-      const response = await fetch("/admin/pathfinder/tables");
+      const response = await fetch("/api/tables", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(sourcePayload(sourceKind, sources[sourceKind]))
+      });
       const json = await readJson<TablesResponse>(response);
       setTables(json.tables);
-      setStatus("Loaded schema metadata");
+      setOutput("");
     } catch (error) {
-      setStatus(errorMessage(error));
+      setOutput(errorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -108,28 +115,30 @@ function App() {
 
   async function findPath() {
     setLoading(true);
-    setStatus("Finding path");
 
     try {
-      const response = await fetch("/admin/pathfinder/path", {
+      const response = await fetch("/api/path", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           sourceTable: qualifiedTable(schema, sourceTable),
           targetTable: qualifiedTable(schema, targetTable),
-          format
+          format,
+          ...sourcePayload(sourceKind, sources[sourceKind])
         })
       });
       const json = await readJson<PathResponse>(response);
       if (json.rendered !== undefined) {
         setOutput(json.rendered);
-        setStatus("Path found");
         return;
       }
-      setOutput(json.noPathReason ?? "NO_DECLARED_FK_PATH");
-      setStatus("No declared FK path found");
+      let noPathReason = "NO_DECLARED_FK_PATH";
+      if (json.noPathReason !== undefined) {
+        noPathReason = json.noPathReason;
+      }
+      setOutput(noPathReason);
     } catch (error) {
-      setStatus(errorMessage(error));
+      setOutput(errorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -155,7 +164,7 @@ function App() {
               <option value="postgres">postgres</option>
             </select>
             <button type="button" onClick={loadTables}>
-              {loading ? <Loader2 size={16} className="spin" /> : <Database size={16} />}
+              {loadButtonIcon(loading)}
               Load
             </button>
           </div>
@@ -217,16 +226,41 @@ function App() {
           </section>
         </section>
       </section>
-      <div className="status-line"><GitBranch size={14} />{status}</div>
     </main>
   );
+}
+
+function sourcePayload(sourceKind: SourceKind, sourceValue: string): SourcePayload {
+  return { sourceKind, sourceValue };
+}
+
+function loadButtonIcon(loading: boolean): React.ReactNode {
+  if (loading) {
+    return <Loader2 size={16} className="spin" />;
+  }
+
+  return <Database size={16} />;
+}
+
+function responseErrorTitle(value: unknown, fallback: string): string {
+  if (typeof value === "object" && value !== null && "error" in value) {
+    const body = value as { error: unknown };
+    if (typeof body.error === "object" && body.error !== null && "title" in body.error) {
+      const error = body.error as { title: unknown };
+      if (typeof error.title === "string") {
+        return error.title;
+      }
+    }
+  }
+
+  return fallback;
 }
 
 async function readJson<T>(response: Response): Promise<T> {
   const text = await response.text();
   const json = JSON.parse(text);
   if (response.ok === false) {
-    throw new Error(json.error?.title ?? response.statusText);
+    throw new Error(responseErrorTitle(json, response.statusText));
   }
   return json as T;
 }
