@@ -1,8 +1,8 @@
 use lexopt::prelude::*;
 use schema_pathfinder::pathfinder_core::{
-    best_path, discover_postgres_foreign_keys, list_tables_from_edges,
-    load_edges_from_env_or_fixture, load_edges_from_fixture, parse_format, pathfinder_error,
-    render_path, render_tables, ForeignKeyEdge, OutputFormat, PathfinderError, SUPPORTED_FORMATS,
+    best_path, discover_postgres_schema, load_schema_from_env_or_fixture, load_schema_from_fixture,
+    load_schema_from_sql_file, parse_format, pathfinder_error, render_path, render_tables,
+    OutputFormat, PathfinderError, SchemaMetadata, SUPPORTED_FORMATS,
 };
 
 #[derive(Debug)]
@@ -10,6 +10,7 @@ struct Args {
     command: CommandMode,
     format: OutputFormat,
     fixture: Option<String>,
+    sql: Option<String>,
     database_url: Option<String>,
 }
 
@@ -17,6 +18,7 @@ struct Args {
 enum CommandMode {
     Help,
     Tables,
+    Fixture,
     Path {
         source_table: String,
         target_table: String,
@@ -41,17 +43,24 @@ fn run() -> Result<(), PathfinderError> {
             Ok(())
         }
         CommandMode::Tables => {
-            let edges = load_edges(&args)?;
-            println!("{}", render_tables(&list_tables_from_edges(&edges)));
+            let schema = load_schema(&args)?;
+            println!("{}", render_tables(&schema.tables));
             Ok(())
         }
         CommandMode::Path {
             ref source_table,
             ref target_table,
         } => {
-            let edges = load_edges(&args)?;
-            let path = best_path(&edges, source_table, target_table)?;
+            let schema = load_schema(&args)?;
+            let path = best_path(&schema.edges, source_table, target_table)?;
             println!("{}", render_path(&path, args.format)?);
+            Ok(())
+        }
+        CommandMode::Fixture => {
+            let schema = load_schema(&args)?;
+            let fixture = serde_json::to_string_pretty(&schema)
+                .map_err(|error| pathfinder_error("FIXTURE_RENDER_FAILED", error))?;
+            println!("{}", fixture);
             Ok(())
         }
     }
@@ -62,6 +71,7 @@ fn parse_args() -> Result<Args, PathfinderError> {
     let mut values: Vec<String> = Vec::new();
     let mut format = OutputFormat::Text;
     let mut fixture = None;
+    let mut sql = None;
     let mut database_url = None;
     let mut top_level_tables = false;
 
@@ -75,6 +85,7 @@ fn parse_args() -> Result<Args, PathfinderError> {
                     command: CommandMode::Help,
                     format,
                     fixture,
+                    sql,
                     database_url: None,
                 });
             }
@@ -98,6 +109,15 @@ fn parse_args() -> Result<Args, PathfinderError> {
                     .parse()
                     .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
                 fixture = Some(value);
+            }
+            Long("sql") => {
+                let raw_value = parser
+                    .value()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                let value: String = raw_value
+                    .parse()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                sql = Some(value);
             }
             Long("database-url") => {
                 let raw_value = parser
@@ -126,20 +146,25 @@ fn parse_args() -> Result<Args, PathfinderError> {
         command,
         format,
         fixture,
+        sql,
         database_url,
     })
 }
 
-fn load_edges(args: &Args) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
+fn load_schema(args: &Args) -> Result<SchemaMetadata, PathfinderError> {
     if let Some(path) = args.fixture.as_deref() {
-        return load_edges_from_fixture(path);
+        return load_schema_from_fixture(path);
+    }
+
+    if let Some(path) = args.sql.as_deref() {
+        return load_schema_from_sql_file(path);
     }
 
     if let Some(database_url) = args.database_url.as_deref() {
-        return discover_postgres_foreign_keys(database_url);
+        return discover_postgres_schema(database_url);
     }
 
-    load_edges_from_env_or_fixture(None)
+    load_schema_from_env_or_fixture(None)
 }
 
 fn command_from_values(
@@ -162,6 +187,17 @@ fn command_from_values(
         return Err(PathfinderError {
             code: "ARGS_INVALID",
             message: "tables does not accept positional arguments".to_string(),
+        });
+    }
+
+    if values[0] == "fixture" {
+        if values.len() == 1 {
+            return Ok(CommandMode::Fixture);
+        }
+
+        return Err(PathfinderError {
+            code: "ARGS_INVALID",
+            message: "fixture does not accept positional arguments".to_string(),
         });
     }
 
@@ -194,12 +230,14 @@ fn print_help() {
     println!("  --tables                 list available tables and exit");
     println!("  --database-url <url>     read PostgreSQL metadata from this connection URL");
     println!("  --fixture <path>         read FK metadata from a fixture JSON file");
+    println!("  --sql <path>             read PostgreSQL DDL SQL and convert it to metadata");
     println!("  -h, --help               display help for command");
     println!();
     println!("Commands:");
     println!(
-        "  tables                   List available tables from fixture or PostgreSQL metadata"
+        "  tables                   List available tables from fixture, SQL, or PostgreSQL metadata"
     );
+    println!("  fixture                  Print generated fixture JSON from the selected source");
     println!("  path <source> <target>   Find a declared FK path between two tables");
     println!();
     println!("Examples:");
@@ -212,9 +250,12 @@ fn print_help() {
     println!(
         "  schema-pathfinder --tables --database-url postgres://user:pass@localhost:5432/postgres"
     );
+    println!("  schema-pathfinder --tables --sql schema.sql");
+    println!("  schema-pathfinder fixture --sql schema.sql");
+    println!("  schema-pathfinder path ClothingItem User --format equation --sql schema.sql");
     println!();
     println!("Environment:");
-    println!("  DATABASE_URL                  PostgreSQL connection string when neither --fixture nor --database-url is provided");
+    println!("  DATABASE_URL                  PostgreSQL connection string when no --fixture, --sql, or --database-url is provided");
     println!();
     println!("Supported formats:");
     println!("  {}", SUPPORTED_FORMATS.join(", "));

@@ -2,6 +2,7 @@ import { chmodSync, copyFileSync, existsSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import {
+  appImageToolArgs,
   assertRuntimeReady,
   copyRuntimeTree,
   createSvgIcon,
@@ -37,7 +38,7 @@ writeFileSync(join(appDir, desktopPackageName + ".svg"), createSvgIcon());
 copyFileSync(join(appDir, desktopPackageName + ".svg"), join(appDir, ".DirIcon"));
 
 const appImageTool = findAppImageTool();
-execFileSync(appImageTool, [appDir, artifactPath], {
+execFileSync(appImageTool, appImageToolArgs(appDir, artifactPath), {
   cwd: repoRoot(),
   env: {
     ...process.env,

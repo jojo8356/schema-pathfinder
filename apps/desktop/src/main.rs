@@ -1,6 +1,6 @@
 use schema_pathfinder::pathfinder_core::{
-    best_path, discover_postgres_foreign_keys, list_tables_from_edges, load_edges_from_fixture,
-    parse_format, render_path, render_tables, ForeignKeyEdge, TableIdentifier,
+    best_path, discover_postgres_schema, load_schema_from_fixture, load_schema_from_sql_file,
+    parse_format, render_path, render_tables, ForeignKeyEdge, SchemaMetadata, TableIdentifier,
 };
 use slint::ComponentHandle;
 use std::cell::RefCell;
@@ -17,9 +17,11 @@ fn main() -> Result<(), slint::PlatformError> {
     let state = Rc::new(RefCell::new(DesktopState::default()));
 
     window.set_fixture_path(DEFAULT_FIXTURE.into());
+    window.set_sql_path("".into());
     window.set_database_url("".into());
     load_initial_edges(&window, &state);
     bind_load_fixture(&window, &state);
+    bind_load_sql(&window, &state);
     bind_load_database(&window, &state);
     bind_find_path(&window, &state);
 
@@ -53,6 +55,17 @@ fn bind_load_fixture(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
     });
 }
 
+fn bind_load_sql(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
+    let weak_window = window.as_weak();
+    let callback_state = Rc::clone(state);
+
+    window.on_load_sql(move |path| {
+        if let Some(window) = weak_window.upgrade() {
+            load_sql_path(&window, &callback_state, path.as_str());
+        }
+    });
+}
+
 fn bind_load_database(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
     let weak_window = window.as_weak();
     let callback_state = Rc::clone(state);
@@ -82,9 +95,27 @@ fn bind_find_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
 }
 
 fn load_fixture_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>, path: &str) {
-    match load_edges_from_fixture(path) {
-        Ok(edges) => {
-            replace_edges(window, state, edges, format!("Loaded fixture {}", path));
+    match load_schema_from_fixture(path) {
+        Ok(schema) => {
+            replace_schema(window, state, schema, format!("Loaded fixture {}", path));
+        }
+        Err(error) => {
+            window.set_status(format!("{}: {}", error.code, error.message).into());
+        }
+    }
+}
+
+fn load_sql_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>, raw_path: &str) {
+    let path = raw_path.trim();
+
+    if path.is_empty() {
+        window.set_status("SQL_PATH_MISSING: choose a PostgreSQL .sql file".into());
+        return;
+    }
+
+    match load_schema_from_sql_file(path) {
+        Ok(schema) => {
+            replace_schema(window, state, schema, format!("Loaded SQL schema {}", path));
         }
         Err(error) => {
             window.set_status(format!("{}: {}", error.code, error.message).into());
@@ -124,9 +155,9 @@ fn load_database_url_value(
     database_url: &str,
     status: &str,
 ) {
-    match discover_postgres_foreign_keys(database_url) {
-        Ok(edges) => {
-            replace_edges(window, state, edges, status.to_string());
+    match discover_postgres_schema(database_url) {
+        Ok(schema) => {
+            replace_schema(window, state, schema, status.to_string());
         }
         Err(error) => {
             window.set_status(format!("{}: {}", error.code, error.message).into());
@@ -134,21 +165,20 @@ fn load_database_url_value(
     }
 }
 
-fn replace_edges(
+fn replace_schema(
     window: &AppWindow,
     state: &Rc<RefCell<DesktopState>>,
-    edges: Vec<ForeignKeyEdge>,
+    schema: SchemaMetadata,
     status: String,
 ) {
-    let tables = list_tables_from_edges(&edges);
-    let tables_text = render_tables(&tables);
-    let source = first_table_name(&tables);
-    let target = last_table_name(&tables);
+    let tables_text = render_tables(&schema.tables);
+    let source = first_table_name(&schema.tables);
+    let target = last_table_name(&schema.tables);
 
     {
         let mut current = state.borrow_mut();
-        current.edges = edges;
-        current.tables = tables;
+        current.edges = schema.edges;
+        current.tables = schema.tables;
     }
 
     window.set_tables_text(tables_text.into());
@@ -168,7 +198,7 @@ fn render_selected_path(
     let current = state.borrow();
 
     if current.edges.is_empty() {
-        window.set_status("NO_TABLES: load a fixture or DATABASE_URL first".into());
+        window.set_status("NO_TABLES: load a fixture, SQL file, or DATABASE_URL first".into());
         return;
     }
 

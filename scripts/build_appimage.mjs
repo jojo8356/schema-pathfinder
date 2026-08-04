@@ -2,6 +2,7 @@ import { copyFileSync, existsSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import {
+  appImageToolArgs,
   assertRuntimeReady,
   buildRustCliRelease,
   copyRustCliBinary,
@@ -42,7 +43,7 @@ writeFileSync(join(appDir, `${packageManifest.packageName}.svg`), createSvgIcon(
 copyFileSync(join(appDir, `${packageManifest.packageName}.svg`), join(appDir, ".DirIcon"));
 
 const appImageTool = findAppImageTool();
-execFileSync(appImageTool, [appDir, artifactPath], {
+execFileSync(appImageTool, appImageToolArgs(appDir, artifactPath), {
   cwd: repoRoot(),
   env: {
     ...process.env,

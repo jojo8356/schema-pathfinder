@@ -1,3 +1,4 @@
+pub use crate::postgres_sql_metadata::load_schema_from_sql;
 use postgres::{Client, NoTls};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -7,6 +8,17 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 
 pub const SUPPORTED_FORMATS: [&str; 5] = ["text", "equation", "json", "sql", "mermaid"];
+const POSTGRES_TABLE_SQL: &str = r#"
+select
+  table_ns.nspname as schema_name,
+  table_record.relname as table_name
+from pg_class table_record
+join pg_namespace table_ns on table_ns.oid = table_record.relnamespace
+where table_record.relkind in ('r', 'p')
+  and table_ns.nspname = any($1)
+order by table_ns.nspname, table_record.relname
+"#;
+
 const POSTGRES_FK_SQL: &str = r#"
 select
   source_ns.nspname as source_schema,
@@ -37,6 +49,12 @@ order by source_ns.nspname, source_table.relname, constraint_record.conname, sou
 pub struct TableIdentifier {
     pub schema: String,
     pub table: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaMetadata {
+    pub tables: Vec<TableIdentifier>,
+    pub edges: Vec<ForeignKeyEdge>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,6 +90,8 @@ pub struct ScoreContribution {
 
 #[derive(Debug, Deserialize)]
 struct Fixture {
+    #[serde(default)]
+    tables: Vec<TableIdentifier>,
     edges: Vec<ForeignKeyEdge>,
 }
 
@@ -118,36 +138,74 @@ pub fn format_name(format: OutputFormat) -> &'static str {
     }
 }
 
-pub fn load_edges_from_fixture(path: &str) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
+pub fn load_schema_from_fixture(path: &str) -> Result<SchemaMetadata, PathfinderError> {
     let content =
         fs::read_to_string(path).map_err(|error| pathfinder_error("FIXTURE_READ_FAILED", error))?;
     let fixture: Fixture = serde_json::from_str(&content)
         .map_err(|error| pathfinder_error("FIXTURE_JSON_INVALID", error))?;
-    Ok(fixture.edges)
+    let mut tables = fixture.tables;
+
+    if tables.is_empty() {
+        tables = list_tables_from_edges(&fixture.edges);
+    }
+
+    Ok(SchemaMetadata {
+        tables,
+        edges: fixture.edges,
+    })
+}
+
+pub fn load_edges_from_fixture(path: &str) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
+    Ok(load_schema_from_fixture(path)?.edges)
+}
+
+pub fn load_schema_from_sql_file(path: &str) -> Result<SchemaMetadata, PathfinderError> {
+    let content =
+        fs::read_to_string(path).map_err(|error| pathfinder_error("SQL_READ_FAILED", error))?;
+    load_schema_from_sql(&content)
+}
+
+pub fn load_edges_from_sql_file(path: &str) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
+    Ok(load_schema_from_sql_file(path)?.edges)
+}
+
+pub fn load_schema_from_env_or_fixture(
+    fixture: Option<&str>,
+) -> Result<SchemaMetadata, PathfinderError> {
+    if let Some(path) = fixture {
+        return load_schema_from_fixture(path);
+    }
+
+    let database_url =
+        env::var("DATABASE_URL").map_err(|error| pathfinder_error("DB_CONFIG_MISSING", error))?;
+    discover_postgres_schema(&database_url)
 }
 
 pub fn load_edges_from_env_or_fixture(
     fixture: Option<&str>,
 ) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
-    if let Some(path) = fixture {
-        return load_edges_from_fixture(path);
-    }
-
-    let database_url =
-        env::var("DATABASE_URL").map_err(|error| pathfinder_error("DB_CONFIG_MISSING", error))?;
-    discover_postgres_foreign_keys(&database_url)
+    Ok(load_schema_from_env_or_fixture(fixture)?.edges)
 }
 
-pub fn discover_postgres_foreign_keys(
-    database_url: &str,
-) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
+pub fn discover_postgres_schema(database_url: &str) -> Result<SchemaMetadata, PathfinderError> {
     let mut client = Client::connect(database_url, NoTls)
         .map_err(|error| pathfinder_error("DB_CONNECT_FAILED", error))?;
     let schemas = vec!["public"];
+    let table_rows = client
+        .query(POSTGRES_TABLE_SQL, &[&schemas])
+        .map_err(|error| pathfinder_error("DB_METADATA_FAILED", error))?;
     let rows = client
         .query(POSTGRES_FK_SQL, &[&schemas])
         .map_err(|error| pathfinder_error("DB_METADATA_FAILED", error))?;
+    let mut tables = Vec::new();
     let mut edges = Vec::new();
+
+    for row in table_rows {
+        tables.push(TableIdentifier {
+            schema: row.get("schema_name"),
+            table: row.get("table_name"),
+        });
+    }
 
     for row in rows {
         edges.push(ForeignKeyEdge {
@@ -166,7 +224,13 @@ pub fn discover_postgres_foreign_keys(
         });
     }
 
-    Ok(edges)
+    Ok(SchemaMetadata { tables, edges })
+}
+
+pub fn discover_postgres_foreign_keys(
+    database_url: &str,
+) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
+    Ok(discover_postgres_schema(database_url)?.edges)
 }
 
 pub fn best_path(
@@ -488,3 +552,66 @@ impl Display for PathfinderError {
 }
 
 impl Error for PathfinderError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DRESSSHOT_SQL: &str = r#"
+        create table public."User" (
+            id text primary key
+        );
+
+        create table public."SellerProfile" (
+            id text primary key,
+            "userId" text constraint "SellerProfile_userId_fkey" references public."User"(id)
+        );
+
+        create table public."ClothingSession" (
+            id text primary key,
+            "sellerProfileId" text not null,
+            constraint "ClothingSession_sellerProfileId_fkey"
+                foreign key ("sellerProfileId") references public."SellerProfile"(id)
+        );
+
+        create table public."ClothingItem" (
+            id text primary key,
+            "clothingSessionId" text not null
+        );
+
+        alter table only public."ClothingItem"
+            add constraint "ClothingItem_clothingSessionId_fkey"
+            foreign key ("clothingSessionId") references public."ClothingSession"(id);
+    "#;
+
+    #[test]
+    fn extracts_tables_and_foreign_keys_from_postgres_sql() {
+        let schema = load_schema_from_sql(DRESSSHOT_SQL).expect("sql loads");
+
+        assert_eq!(schema.tables.len(), 4);
+        assert_eq!(schema.edges.len(), 3);
+        assert!(schema
+            .tables
+            .iter()
+            .any(|table| table.schema == "public" && table.table == "ClothingItem"));
+        assert!(schema.edges.iter().any(|edge| {
+            edge.constraint_name == "ClothingItem_clothingSessionId_fkey"
+                && edge.from.table == "ClothingItem"
+                && edge.from_column == "clothingSessionId"
+                && edge.to.table == "ClothingSession"
+                && edge.to_column == "id"
+        }));
+    }
+
+    #[test]
+    fn sql_schema_can_drive_normal_path_rendering() {
+        let schema = load_schema_from_sql(DRESSSHOT_SQL).expect("sql loads");
+        let path = best_path(&schema.edges, "ClothingItem", "User").expect("path exists");
+        let rendered = render_path(&path, OutputFormat::Equation).expect("path renders");
+
+        assert_eq!(path.length, 3);
+        assert!(rendered.contains("ClothingItem.clothingSessionId = ClothingSession.id"));
+        assert!(rendered.contains("-> ClothingSession.sellerProfileId = SellerProfile.id"));
+        assert!(rendered.contains("-> SellerProfile.userId = User.id"));
+    }
+}

@@ -27,19 +27,22 @@ Useful local commands:
 ```bash
 schema-pathfinder --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
 schema-pathfinder --tables --database-url postgres://user:pass@localhost:5432/postgres
+schema-pathfinder --tables --sql fixtures/postgres/dressshot_schema.sql
+schema-pathfinder fixture --sql fixtures/postgres/dressshot_schema.sql
 schema-pathfinder tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
 schema-pathfinder path ClothingItem User --format equation --fixture fixtures/postgres/dressshot_seed_fk_edges.json
 schema-pathfinder path ClothingItem User --format sql --fixture fixtures/postgres/dressshot_seed_fk_edges.json
+schema-pathfinder path ClothingItem User --format equation --sql fixtures/postgres/dressshot_schema.sql
 ```
 
-`--fixture` has priority. Without `--fixture`, the CLI can read PostgreSQL metadata directly from `--database-url`; if omitted, it falls back to `DATABASE_URL`.
+`--fixture` has priority, followed by `--sql`, then `--database-url`. Without any explicit source, the CLI falls back to `DATABASE_URL`. `fixture --sql <path>` prints the generated JSON fixture so a PostgreSQL DDL file can be converted once and reused like the normal fixture workflow.
 
 ## Surfaces
 
 - `apps/cli-rust`: Rust CLI and Rust local/admin API binary.
 - `packages/core`: TypeScript contract mirror retained for current JS contract tests during web migration.
 - `apps/web`: React web UI.
-- `apps/desktop`: Rust/Slint desktop UI. It loads fixtures or a pasted Postgres URL locally, without a backend URL.
+- `apps/desktop`: Rust/Slint desktop UI. It loads fixtures, PostgreSQL DDL SQL files, or a pasted Postgres URL locally, without a backend URL.
 
 ## Safety
 

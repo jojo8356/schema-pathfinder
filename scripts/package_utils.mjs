@@ -109,6 +109,17 @@ export function createSvgIcon() {
 `;
 }
 
+
+export function appImageToolArgs(appDir, artifactPath) {
+  const runtimeFile = process.env.APPIMAGE_RUNTIME_FILE || "/tmp/runtime-x86_64";
+
+  if (existsSync(runtimeFile) === true) {
+    return ["--runtime-file", runtimeFile, appDir, artifactPath];
+  }
+
+  return [appDir, artifactPath];
+}
+
 export function assertRuntimeReady() {
   execFileSync("cargo", ["--version"], {
     stdio: "ignore"

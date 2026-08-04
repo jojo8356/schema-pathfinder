@@ -1,4 +1,4 @@
-import { Button, ComboBox, LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
+import { Button, ComboBox, LineEdit, TextEdit } from "std-widgets.slint";
 
 component SectionTitle inherits Text {
     color: #111827;
@@ -30,6 +30,7 @@ export component AppWindow inherits Window {
     background: #f8fafc;
 
     in-out property <string> fixture-path;
+    in-out property <string> sql-path;
     in-out property <string> database-url;
     in-out property <string> source-table;
     in-out property <string> target-table;
@@ -40,6 +41,7 @@ export component AppWindow inherits Window {
     in-out property <string> status: "Ready";
 
     callback load-fixture(string);
+    callback load-sql(string);
     callback load-database(string);
     callback find-path(string, string, string);
 
@@ -96,6 +98,14 @@ export component AppWindow inherits Window {
                     }
 
                     FieldLabel {
+                        text: "SQL file";
+                    }
+
+                    LineEdit {
+                        text <=> root.sql-path;
+                    }
+
+                    FieldLabel {
                         text: "Postgres URL";
                     }
 
@@ -103,18 +113,32 @@ export component AppWindow inherits Window {
                         text <=> root.database-url;
                     }
 
-                    HorizontalLayout {
+                    GridLayout {
                         spacing: 8px;
 
                         Button {
                             text: "Load file";
+                            row: 0;
+                            col: 0;
                             clicked => {
                                 root.load-fixture(root.fixture-path);
                             }
                         }
 
                         Button {
+                            text: "Load SQL";
+                            row: 0;
+                            col: 1;
+                            clicked => {
+                                root.load-sql(root.sql-path);
+                            }
+                        }
+
+                        Button {
                             text: "Load Postgres";
+                            row: 1;
+                            col: 0;
+                            colspan: 2;
                             clicked => {
                                 root.load-database(root.database-url);
                             }
@@ -138,8 +162,9 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    ScrollView {
-                        viewport-height: 360px;
+                    Rectangle {
+                        height: 300px;
+                        clip: true;
 
                         Text {
                             text: root.tables-text;
