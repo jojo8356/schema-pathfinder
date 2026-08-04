@@ -49,6 +49,15 @@ describe("desktop UI", () => {
     assert.equal(countMatches(sourceSection, /LineEdit \{/g), 1);
   });
 
+  it("shows a source databases box", () => {
+    const databasesSection = segmentBetween(desktopUi, 'text: "Databases";', 'text: "Tables";');
+
+    assert.equal(desktopUi.includes("databases-text"), true);
+    assert.match(databasesSection, /text: "database"/);
+    assert.match(databasesSection, /text: root.databases-text/);
+    assert.match(databasesSection, /ScrollView \{/);
+  });
+
   it("uses selectors for schema, source table, and target table", () => {
     const pathSection = segmentBetween(desktopUi, 'text: "Path";', 'text: "Format";');
 

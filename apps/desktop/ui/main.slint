@@ -47,6 +47,7 @@ export component AppWindow inherits Window {
     in-out property <int> selected-format-index: 0;
     in-out property <string> selected-source-kind: "fixture";
     in-out property <int> selected-source-index: 0;
+    in-out property <string> databases-text;
     in-out property <string> tables-text;
     in-out property <string> output-text;
 
@@ -141,6 +142,42 @@ export component AppWindow inherits Window {
                         spacing: 8px;
 
                         SectionTitle {
+                            text: "Databases";
+                        }
+
+                        MutedText {
+                            text: "database";
+                        }
+                    }
+
+                    HorizontalLayout {
+                        height: 92px;
+                        spacing: 8px;
+
+                        ScrollView {
+                            horizontal-stretch: 1;
+                            vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+                            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+
+                            Text {
+                                text: root.databases-text;
+                                color: #111827;
+                                font-size: 13px;
+                                font-family: "monospace";
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: #e5e7eb;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+
+                        SectionTitle {
                             text: "Tables";
                         }
 
@@ -150,7 +187,7 @@ export component AppWindow inherits Window {
                     }
 
                     HorizontalLayout {
-                        height: 300px;
+                        height: 210px;
                         spacing: 8px;
 
                         ScrollView {

@@ -19,6 +19,22 @@ where table_record.relkind in ('r', 'p')
 order by table_ns.nspname, table_record.relname
 "#;
 
+const POSTGRES_DATABASE_SQL: &str = r#"
+select datname
+from pg_database
+where datistemplate = false
+  and datallowconn = true
+order by datname
+"#;
+
+const POSTGRES_SCHEMA_SQL: &str = r#"
+select nspname
+from pg_namespace
+where nspname <> 'information_schema'
+  and nspname not like 'pg_%'
+order by nspname
+"#;
+
 const POSTGRES_FK_SQL: &str = r#"
 select
   source_ns.nspname as source_schema,
@@ -187,6 +203,36 @@ pub fn load_edges_from_env_or_fixture(
     Ok(load_schema_from_env_or_fixture(fixture)?.edges)
 }
 
+pub fn discover_postgres_databases(database_url: &str) -> Result<Vec<String>, PathfinderError> {
+    let mut client = Client::connect(database_url, NoTls)
+        .map_err(|error| pathfinder_error("DB_CONNECT_FAILED", error))?;
+    let rows = client
+        .query(POSTGRES_DATABASE_SQL, &[])
+        .map_err(|error| pathfinder_error("DB_METADATA_FAILED", error))?;
+    let mut databases = Vec::new();
+
+    for row in rows {
+        databases.push(row.get("datname"));
+    }
+
+    Ok(databases)
+}
+
+pub fn discover_postgres_schemas(database_url: &str) -> Result<Vec<String>, PathfinderError> {
+    let mut client = Client::connect(database_url, NoTls)
+        .map_err(|error| pathfinder_error("DB_CONNECT_FAILED", error))?;
+    let rows = client
+        .query(POSTGRES_SCHEMA_SQL, &[])
+        .map_err(|error| pathfinder_error("DB_METADATA_FAILED", error))?;
+    let mut schemas = Vec::new();
+
+    for row in rows {
+        schemas.push(row.get("nspname"));
+    }
+
+    Ok(schemas)
+}
+
 pub fn discover_postgres_schema(database_url: &str) -> Result<SchemaMetadata, PathfinderError> {
     let mut client = Client::connect(database_url, NoTls)
         .map_err(|error| pathfinder_error("DB_CONNECT_FAILED", error))?;
@@ -268,6 +314,14 @@ pub fn list_tables_from_edges(edges: &[ForeignKeyEdge]) -> Vec<TableIdentifier> 
     }
 
     tables.into_values().collect()
+}
+
+pub fn render_names(values: &[String], empty_label: &str) -> String {
+    if values.is_empty() {
+        return empty_label.to_string();
+    }
+
+    values.join("\n")
 }
 
 pub fn render_tables(tables: &[TableIdentifier]) -> String {

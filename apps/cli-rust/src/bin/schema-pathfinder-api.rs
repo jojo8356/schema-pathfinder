@@ -1,6 +1,7 @@
 use schema_pathfinder::pathfinder_core::{
-    best_path, discover_postgres_schema, load_schema_from_env_or_fixture, load_schema_from_fixture,
-    load_schema_from_sql, parse_format, render_path, PathfinderError, SchemaMetadata,
+    best_path, discover_postgres_databases, discover_postgres_schema, discover_postgres_schemas,
+    load_schema_from_env_or_fixture, load_schema_from_fixture, load_schema_from_sql, parse_format,
+    pathfinder_error, render_path, PathfinderError, SchemaMetadata,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -116,6 +117,14 @@ fn route_api_request(
         return source_tables_response(request, config);
     }
 
+    if request.method() == &Method::Post && is_databases_route(request.url()) {
+        return source_databases_response(request, config);
+    }
+
+    if request.method() == &Method::Post && is_schemas_route(request.url()) {
+        return source_schemas_response(request, config);
+    }
+
     if request.method() == &Method::Post && is_path_route(request.url()) {
         return path_response(request, config);
     }
@@ -125,6 +134,14 @@ fn route_api_request(
 
 fn is_tables_route(url: &str) -> bool {
     url == "/api/tables" || url == "/admin/pathfinder/tables"
+}
+
+fn is_databases_route(url: &str) -> bool {
+    url == "/api/databases" || url == "/admin/pathfinder/databases"
+}
+
+fn is_schemas_route(url: &str) -> bool {
+    url == "/api/schemas" || url == "/admin/pathfinder/schemas"
 }
 
 fn is_path_route(url: &str) -> bool {
@@ -156,6 +173,54 @@ fn source_tables_response(
     ) {
         Ok(schema) => json_response(StatusCode(200), json!({ "tables": schema.tables })),
         Err(error) => json_response(StatusCode(500), error_json(error.code, &error.message)),
+    }
+}
+
+fn source_databases_response(
+    request: &mut Request,
+    config: &ApiConfig,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let source_request: SourceRequest = match parse_json_body(request) {
+        Ok(value) => value,
+        Err(error) => {
+            return json_response(StatusCode(400), error_json(error.code, &error.message));
+        }
+    };
+
+    match load_postgres_url_for_source(
+        config,
+        &source_request.source_kind,
+        &source_request.source_value,
+    ) {
+        Ok(database_url) => match discover_postgres_databases(&database_url) {
+            Ok(databases) => json_response(StatusCode(200), json!({ "databases": databases })),
+            Err(error) => json_response(StatusCode(500), error_json(error.code, &error.message)),
+        },
+        Err(error) => json_response(StatusCode(400), error_json(error.code, &error.message)),
+    }
+}
+
+fn source_schemas_response(
+    request: &mut Request,
+    config: &ApiConfig,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let source_request: SourceRequest = match parse_json_body(request) {
+        Ok(value) => value,
+        Err(error) => {
+            return json_response(StatusCode(400), error_json(error.code, &error.message));
+        }
+    };
+
+    match load_postgres_url_for_source(
+        config,
+        &source_request.source_kind,
+        &source_request.source_value,
+    ) {
+        Ok(database_url) => match discover_postgres_schemas(&database_url) {
+            Ok(schemas) => json_response(StatusCode(200), json!({ "schemas": schemas })),
+            Err(error) => json_response(StatusCode(500), error_json(error.code, &error.message)),
+        },
+        Err(error) => json_response(StatusCode(400), error_json(error.code, &error.message)),
     }
 }
 
@@ -243,6 +308,38 @@ fn parse_json_body<T: for<'de> Deserialize<'de>>(
 
 fn load_schema(config: &ApiConfig) -> Result<SchemaMetadata, PathfinderError> {
     load_schema_from_env_or_fixture(config.fixture.as_deref())
+}
+
+fn load_postgres_url_for_source(
+    _config: &ApiConfig,
+    source_kind: &str,
+    source_value: &str,
+) -> Result<String, PathfinderError> {
+    let trimmed_value = source_value.trim();
+
+    if source_kind == "postgres" {
+        if trimmed_value.is_empty() {
+            return env::var("DATABASE_URL")
+                .map_err(|error| pathfinder_error("DB_CONFIG_MISSING", error));
+        }
+
+        return Ok(trimmed_value.to_string());
+    }
+
+    if source_kind == "fixture" || source_kind == "sql" {
+        return Err(PathfinderError {
+            code: "SOURCE_KIND_UNSUPPORTED",
+            message: format!(
+                "{} source does not provide PostgreSQL server metadata",
+                source_kind
+            ),
+        });
+    }
+
+    Err(PathfinderError {
+        code: "SOURCE_KIND_UNSUPPORTED",
+        message: format!("Unsupported source kind: {}", source_kind),
+    })
 }
 
 fn load_schema_for_source(

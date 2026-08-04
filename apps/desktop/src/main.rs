@@ -1,6 +1,7 @@
 use schema_pathfinder::pathfinder_core::{
-    best_path, discover_postgres_schema, load_schema_from_fixture, load_schema_from_sql_file,
-    parse_format, render_path, render_tables, ForeignKeyEdge, SchemaMetadata, TableIdentifier,
+    best_path, discover_postgres_databases, discover_postgres_schema, load_schema_from_fixture,
+    load_schema_from_sql_file, parse_format, render_names, render_path, render_tables,
+    ForeignKeyEdge, SchemaMetadata, TableIdentifier,
 };
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use std::cell::RefCell;
@@ -20,6 +21,7 @@ fn main() -> Result<(), slint::PlatformError> {
     window.set_fixture_path(DEFAULT_FIXTURE.into());
     window.set_sql_path("".into());
     window.set_database_url("".into());
+    window.set_databases_text("NO_DATABASES".into());
     window.set_selected_source_kind("fixture".into());
     window.set_selected_source_index(0);
     window.set_source_input_label(source_input_label("fixture").into());
@@ -48,6 +50,7 @@ fn load_initial_edges(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
     }
 
     window.set_output_text("No fixture loaded".into());
+    window.set_databases_text("NO_DATABASES".into());
     window.set_tables_text("NO_TABLES".into());
 }
 
@@ -192,6 +195,7 @@ fn bind_find_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
 fn load_fixture_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>, path: &str) {
     match load_schema_from_fixture(path) {
         Ok(schema) => {
+            window.set_databases_text("NO_DATABASES".into());
             replace_schema(window, state, schema);
         }
         Err(error) => {
@@ -210,6 +214,7 @@ fn load_sql_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>, raw_path
 
     match load_schema_from_sql_file(path) {
         Ok(schema) => {
+            window.set_databases_text("NO_DATABASES".into());
             replace_schema(window, state, schema);
         }
         Err(error) => {
@@ -251,6 +256,7 @@ fn load_database_url_value(
 ) {
     match discover_postgres_schema(database_url) {
         Ok(schema) => {
+            replace_databases(window, database_url);
             replace_schema(window, state, schema);
         }
         Err(error) => {
@@ -259,11 +265,19 @@ fn load_database_url_value(
     }
 }
 
-fn replace_schema(
-    window: &AppWindow,
-    state: &Rc<RefCell<DesktopState>>,
-    schema: SchemaMetadata,
-) {
+fn replace_databases(window: &AppWindow, database_url: &str) {
+    match discover_postgres_databases(database_url) {
+        Ok(databases) => {
+            window.set_databases_text(render_names(&databases, "NO_DATABASES").into());
+        }
+        Err(error) => {
+            window.set_databases_text("NO_DATABASES".into());
+            window.set_output_text(format!("{}: {}", error.code, error.message).into());
+        }
+    }
+}
+
+fn replace_schema(window: &AppWindow, state: &Rc<RefCell<DesktopState>>, schema: SchemaMetadata) {
     let tables_text = render_tables(&schema.tables);
     let schema_names = schema_options(&schema.tables);
     let selected_schema = first_schema_name(&schema_names);

@@ -12,6 +12,10 @@ type TablesResponse = {
   tables: TableIdentifier[];
 };
 
+type DatabasesResponse = {
+  databases: string[];
+};
+
 type SourcePayload = {
   sourceKind: SourceKind;
   sourceValue: string;
@@ -42,6 +46,7 @@ function App() {
   const [sourceKind, setSourceKind] = useState<SourceKind>("fixture");
   const [sources, setSources] = useState<Record<SourceKind, string>>(defaultSources);
   const [tables, setTables] = useState<TableIdentifier[]>([]);
+  const [databases, setDatabases] = useState<string[]>([]);
   const [schema, setSchema] = useState("public");
   const [sourceTable, setSourceTable] = useState("");
   const [targetTable, setTargetTable] = useState("");
@@ -67,6 +72,12 @@ function App() {
   useEffect(() => {
     void loadTables();
   }, []);
+
+  useEffect(() => {
+    if (sourceKind !== "postgres") {
+      setDatabases([]);
+    }
+  }, [sourceKind]);
 
   useEffect(() => {
     if (schemas.includes(schema) === false) {
@@ -105,12 +116,28 @@ function App() {
       });
       const json = await readJson<TablesResponse>(response);
       setTables(json.tables);
+      await loadDatabasesForCurrentSource();
       setOutput("");
     } catch (error) {
       setOutput(errorMessage(error));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadDatabasesForCurrentSource() {
+    if (sourceKind !== "postgres") {
+      setDatabases([]);
+      return;
+    }
+
+    const response = await fetch("/api/databases", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(sourcePayload(sourceKind, sources[sourceKind]))
+    });
+    const json = await readJson<DatabasesResponse>(response);
+    setDatabases(json.databases);
   }
 
   async function findPath() {
@@ -168,6 +195,12 @@ function App() {
               Load
             </button>
           </div>
+          <div className="divider" />
+          <div className="panel-title-row">
+            <h2>Databases</h2>
+            <span>database</span>
+          </div>
+          <pre className="metadata-list">{renderNamesText(databases, "NO_DATABASES")}</pre>
           <div className="divider" />
           <div className="panel-title-row">
             <h2>Tables</h2>
@@ -228,6 +261,14 @@ function App() {
       </section>
     </main>
   );
+}
+
+function renderNamesText(values: string[], emptyLabel: string): string {
+  if (values.length === 0) {
+    return emptyLabel;
+  }
+
+  return values.join("\n");
 }
 
 function renderTablesText(tables: TableIdentifier[]): string {

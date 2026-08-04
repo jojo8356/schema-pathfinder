@@ -11,6 +11,14 @@ describe("web UI", () => {
     assert.doesNotMatch(webApp, /join\("\\\\n"\)/);
   });
 
+  it("shows databases in the source panel", () => {
+    assert.match(webApp, /type DatabasesResponse/);
+    assert.match(webApp, /\/api\/databases/);
+    assert.match(webApp, /<h2>Databases<\/h2>/);
+    assert.match(webApp, /renderNamesText\(databases, "NO_DATABASES"\)/);
+    assert.match(webCss, /\.metadata-list/);
+  });
+
   it("shows an explicit empty-table state", () => {
     assert.match(webApp, /function renderTablesText/);
     assert.match(webApp, /return "NO_TABLES"/);
