@@ -49,21 +49,6 @@ component ToolbarButton inherits Rectangle {
     }
 }
 
-component TableScrollbar inherits Rectangle {
-    width: 8px;
-    height: 300px;
-    border-radius: 4px;
-    background: #e5e7eb;
-
-    Rectangle {
-        x: 2px;
-        y: 4px;
-        width: 4px;
-        height: 64px;
-        border-radius: 2px;
-        background: #94a3b8;
-    }
-}
 
 export component AppWindow inherits Window {
     width: 1080px;
@@ -128,14 +113,20 @@ export component AppWindow inherits Window {
             }
         }
 
-        HorizontalLayout {
-            padding: 16px;
-            spacing: 16px;
+        ScrollView {
+            vertical-stretch: 1;
+            vertical-scrollbar-policy: ScrollBarPolicy.always-on;
+            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
-            Panel {
-                width: 310px;
+            HorizontalLayout {
+                padding: 16px;
+                spacing: 16px;
+                preferred-height: 700px;
 
-                VerticalLayout {
+                Panel {
+                    width: 310px;
+
+                    VerticalLayout {
                     padding: 16px;
                     spacing: 14px;
 
@@ -222,7 +213,7 @@ export component AppWindow inherits Window {
 
                         ScrollView {
                             horizontal-stretch: 1;
-                            vertical-scrollbar-policy: ScrollBarPolicy.always-on;
+                            vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
                             horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
                             Text {
@@ -233,8 +224,6 @@ export component AppWindow inherits Window {
                                 wrap: word-wrap;
                             }
                         }
-
-                        TableScrollbar { }
                     }
                 }
             }
@@ -338,6 +327,7 @@ export component AppWindow inherits Window {
                     }
                 }
             }
+        }
         }
 
         Rectangle {
