@@ -26,19 +26,20 @@ Useful local commands:
 
 ```bash
 schema-pathfinder --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
+schema-pathfinder --tables --database-url postgres://user:pass@localhost:5432/postgres
 schema-pathfinder tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
 schema-pathfinder path ClothingItem User --format equation --fixture fixtures/postgres/dressshot_seed_fk_edges.json
 schema-pathfinder path ClothingItem User --format sql --fixture fixtures/postgres/dressshot_seed_fk_edges.json
 ```
 
-Without `--fixture`, the CLI reads PostgreSQL metadata directly through `DATABASE_URL`.
+`--fixture` has priority. Without `--fixture`, the CLI can read PostgreSQL metadata directly from `--database-url`; if omitted, it falls back to `DATABASE_URL`.
 
 ## Surfaces
 
 - `apps/cli-rust`: Rust CLI and Rust local/admin API binary.
 - `packages/core`: TypeScript contract mirror retained for current JS contract tests during web migration.
 - `apps/web`: React web UI.
-- `apps/desktop`: Rust/Slint desktop UI.
+- `apps/desktop`: Rust/Slint desktop UI. It loads fixtures or a pasted Postgres URL locally, without a backend URL.
 
 ## Safety
 

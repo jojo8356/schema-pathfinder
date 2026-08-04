@@ -1,7 +1,8 @@
 use lexopt::prelude::*;
 use schema_pathfinder::pathfinder_core::{
-    best_path, list_tables_from_edges, load_edges_from_env_or_fixture, parse_format,
-    pathfinder_error, render_path, render_tables, OutputFormat, PathfinderError, SUPPORTED_FORMATS,
+    best_path, discover_postgres_foreign_keys, list_tables_from_edges,
+    load_edges_from_env_or_fixture, load_edges_from_fixture, parse_format, pathfinder_error,
+    render_path, render_tables, ForeignKeyEdge, OutputFormat, PathfinderError, SUPPORTED_FORMATS,
 };
 
 #[derive(Debug)]
@@ -9,6 +10,7 @@ struct Args {
     command: CommandMode,
     format: OutputFormat,
     fixture: Option<String>,
+    database_url: Option<String>,
 }
 
 #[derive(Debug)]
@@ -39,7 +41,7 @@ fn run() -> Result<(), PathfinderError> {
             Ok(())
         }
         CommandMode::Tables => {
-            let edges = load_edges_from_env_or_fixture(args.fixture.as_deref())?;
+            let edges = load_edges(&args)?;
             println!("{}", render_tables(&list_tables_from_edges(&edges)));
             Ok(())
         }
@@ -47,7 +49,7 @@ fn run() -> Result<(), PathfinderError> {
             ref source_table,
             ref target_table,
         } => {
-            let edges = load_edges_from_env_or_fixture(args.fixture.as_deref())?;
+            let edges = load_edges(&args)?;
             let path = best_path(&edges, source_table, target_table)?;
             println!("{}", render_path(&path, args.format)?);
             Ok(())
@@ -60,6 +62,7 @@ fn parse_args() -> Result<Args, PathfinderError> {
     let mut values: Vec<String> = Vec::new();
     let mut format = OutputFormat::Text;
     let mut fixture = None;
+    let mut database_url = None;
     let mut top_level_tables = false;
 
     while let Some(arg) = parser
@@ -72,6 +75,7 @@ fn parse_args() -> Result<Args, PathfinderError> {
                     command: CommandMode::Help,
                     format,
                     fixture,
+                    database_url: None,
                 });
             }
             Long("tables") => {
@@ -95,6 +99,15 @@ fn parse_args() -> Result<Args, PathfinderError> {
                     .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
                 fixture = Some(value);
             }
+            Long("database-url") => {
+                let raw_value = parser
+                    .value()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                let value: String = raw_value
+                    .parse()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                database_url = Some(value);
+            }
             Value(value) => {
                 let parsed: String = value
                     .string()
@@ -113,7 +126,20 @@ fn parse_args() -> Result<Args, PathfinderError> {
         command,
         format,
         fixture,
+        database_url,
     })
+}
+
+fn load_edges(args: &Args) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
+    if let Some(path) = args.fixture.as_deref() {
+        return load_edges_from_fixture(path);
+    }
+
+    if let Some(database_url) = args.database_url.as_deref() {
+        return discover_postgres_foreign_keys(database_url);
+    }
+
+    load_edges_from_env_or_fixture(None)
 }
 
 fn command_from_values(
@@ -166,6 +192,8 @@ fn print_help() {
     println!();
     println!("Options:");
     println!("  --tables                 list available tables and exit");
+    println!("  --database-url <url>     read PostgreSQL metadata from this connection URL");
+    println!("  --fixture <path>         read FK metadata from a fixture JSON file");
     println!("  -h, --help               display help for command");
     println!();
     println!("Commands:");
@@ -181,9 +209,12 @@ fn print_help() {
     println!("  schema-pathfinder tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json");
     println!("  schema-pathfinder path ClothingItem User --format equation --fixture fixtures/postgres/dressshot_seed_fk_edges.json");
     println!("  schema-pathfinder path ClothingItem User --format sql --fixture fixtures/postgres/dressshot_seed_fk_edges.json");
+    println!(
+        "  schema-pathfinder --tables --database-url postgres://user:pass@localhost:5432/postgres"
+    );
     println!();
     println!("Environment:");
-    println!("  DATABASE_URL                  PostgreSQL connection string when no --fixture is provided");
+    println!("  DATABASE_URL                  PostgreSQL connection string when neither --fixture nor --database-url is provided");
     println!();
     println!("Supported formats:");
     println!("  {}", SUPPORTED_FORMATS.join(", "));

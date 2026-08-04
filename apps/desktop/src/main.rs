@@ -17,6 +17,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let state = Rc::new(RefCell::new(DesktopState::default()));
 
     window.set_fixture_path(DEFAULT_FIXTURE.into());
+    window.set_database_url("".into());
     load_initial_edges(&window, &state);
     bind_load_fixture(&window, &state);
     bind_load_database(&window, &state);
@@ -56,9 +57,9 @@ fn bind_load_database(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
     let weak_window = window.as_weak();
     let callback_state = Rc::clone(state);
 
-    window.on_load_database(move || {
+    window.on_load_database(move |database_url| {
         if let Some(window) = weak_window.upgrade() {
-            load_database_url(&window, &callback_state);
+            load_database_url(&window, &callback_state, database_url.as_str());
         }
     });
 }
@@ -91,23 +92,44 @@ fn load_fixture_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>, path
     }
 }
 
-fn load_database_url(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
+fn load_database_url(
+    window: &AppWindow,
+    state: &Rc<RefCell<DesktopState>>,
+    raw_database_url: &str,
+) {
+    let database_url = raw_database_url.trim();
+
+    if database_url.is_empty() {
+        load_database_url_from_env(window, state);
+        return;
+    }
+
+    load_database_url_value(window, state, database_url, "Loaded Postgres URL metadata");
+}
+
+fn load_database_url_from_env(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
     match env::var("DATABASE_URL") {
-        Ok(database_url) => match discover_postgres_foreign_keys(&database_url) {
-            Ok(edges) => {
-                replace_edges(
-                    window,
-                    state,
-                    edges,
-                    "Loaded DATABASE_URL metadata".to_string(),
-                );
-            }
-            Err(error) => {
-                window.set_status(format!("{}: {}", error.code, error.message).into());
-            }
-        },
+        Ok(database_url) => {
+            load_database_url_value(window, state, &database_url, "Loaded DATABASE_URL metadata");
+        }
         Err(error) => {
             window.set_status(format!("DB_CONFIG_MISSING: {}", error).into());
+        }
+    }
+}
+
+fn load_database_url_value(
+    window: &AppWindow,
+    state: &Rc<RefCell<DesktopState>>,
+    database_url: &str,
+    status: &str,
+) {
+    match discover_postgres_foreign_keys(database_url) {
+        Ok(edges) => {
+            replace_edges(window, state, edges, status.to_string());
+        }
+        Err(error) => {
+            window.set_status(format!("{}: {}", error.code, error.message).into());
         }
     }
 }

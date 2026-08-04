@@ -30,6 +30,7 @@ export component AppWindow inherits Window {
     background: #f8fafc;
 
     in-out property <string> fixture-path;
+    in-out property <string> database-url;
     in-out property <string> source-table;
     in-out property <string> target-table;
     in-out property <string> selected-format: "equation";
@@ -38,7 +39,7 @@ export component AppWindow inherits Window {
     in-out property <string> status: "Ready";
 
     callback load-fixture(string);
-    callback load-database();
+    callback load-database(string);
     callback find-path(string, string, string);
 
     VerticalLayout {
@@ -93,6 +94,14 @@ export component AppWindow inherits Window {
                         text <=> root.fixture-path;
                     }
 
+                    FieldLabel {
+                        text: "Postgres URL";
+                    }
+
+                    LineEdit {
+                        text <=> root.database-url;
+                    }
+
                     HorizontalLayout {
                         spacing: 8px;
 
@@ -104,9 +113,9 @@ export component AppWindow inherits Window {
                         }
 
                         Button {
-                            text: "Use DATABASE_URL";
+                            text: "Load Postgres";
                             clicked => {
-                                root.load-database();
+                                root.load-database(root.database-url);
                             }
                         }
                     }
@@ -129,7 +138,7 @@ export component AppWindow inherits Window {
                     }
 
                     ScrollView {
-                        viewport-height: 430px;
+                        viewport-height: 360px;
 
                         Text {
                             text: root.tables-text;
