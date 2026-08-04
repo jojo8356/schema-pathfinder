@@ -12,6 +12,7 @@ FROM rust:1.88-bookworm AS api-build
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY apps/cli-rust apps/cli-rust
+COPY apps/desktop apps/desktop
 RUN cargo build --release -p schema-pathfinder --features api --bin schema-pathfinder-api
 
 FROM debian:bookworm-slim AS runtime
