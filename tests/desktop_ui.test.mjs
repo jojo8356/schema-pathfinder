@@ -35,11 +35,18 @@ describe("desktop UI", () => {
 
     assert.equal(sourceSection.includes('model: ["fixture", "sql", "postgres"];'), true);
     assert.equal(sourceSection.includes("selected-source-kind"), true);
-    assert.equal(sourceSection.includes("root.load-source(root.selected-source-kind, root.fixture-path, root.sql-path, root.database-url);"), true);
+    assert.equal(sourceSection.includes("text: root.source-input-label;"), true);
+    assert.equal(sourceSection.includes("text <=> root.source-input-value;"), true);
+    assert.equal(sourceSection.includes("root.select-source(value, root.selected-source-kind, root.source-input-value);"), true);
+    assert.equal(sourceSection.includes("root.load-source(root.selected-source-kind, root.source-input-value);"), true);
     assert.match(sourceSection, /text: "Load"/);
     assert.doesNotMatch(sourceSection, /text: "Load file"/);
     assert.doesNotMatch(sourceSection, /text: "Load SQL"/);
     assert.doesNotMatch(sourceSection, /text: "Load Postgres"/);
+    assert.doesNotMatch(sourceSection, /text: "Fixture file"/);
+    assert.doesNotMatch(sourceSection, /text: "SQL file"/);
+    assert.doesNotMatch(sourceSection, /text: "Postgres URL"/);
+    assert.equal(countMatches(sourceSection, /LineEdit \{/g), 1);
   });
 
   it("uses selectors for schema, source table, and target table", () => {
@@ -69,7 +76,7 @@ describe("desktop UI", () => {
     const globalSection = segmentBetween(
       desktopUi,
       '        ScrollView {\n            vertical-stretch: 1;',
-      '        Rectangle {\n            height: 34px;'
+      '\n    }\n}'
     );
 
     assert.match(globalSection, /vertical-scrollbar-policy: ScrollBarPolicy\.always-on/);
@@ -77,6 +84,15 @@ describe("desktop UI", () => {
     assert.match(globalSection, /HorizontalLayout \{/);
     assert.match(globalSection, /preferred-height: 700px/);
     assert.match(globalSection, /Panel \{/);
+  });
+
+  it("keeps the header minimal and removes the footer", () => {
+    assert.equal(desktopUi.includes('text: "Schema Pathfinder";'), true);
+    assert.doesNotMatch(desktopUi, /Local FK path inspector/);
+    assert.doesNotMatch(desktopUi, /Fullscreen/);
+    assert.doesNotMatch(desktopUi, /toggle-fullscreen/);
+    assert.doesNotMatch(desktopUi, /text: root.status/);
+    assert.doesNotMatch(desktopUi, /height: 34px/);
   });
 
   it("has exactly one always-visible vertical scrollbar", () => {

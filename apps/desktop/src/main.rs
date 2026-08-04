@@ -20,11 +20,15 @@ fn main() -> Result<(), slint::PlatformError> {
     window.set_fixture_path(DEFAULT_FIXTURE.into());
     window.set_sql_path("".into());
     window.set_database_url("".into());
+    window.set_selected_source_kind("fixture".into());
+    window.set_selected_source_index(0);
+    window.set_source_input_label(source_input_label("fixture").into());
+    window.set_source_input_value(DEFAULT_FIXTURE.into());
     load_initial_edges(&window, &state);
+    bind_select_source(&window);
     bind_load_source(&window, &state);
     bind_select_schema(&window, &state);
     bind_find_path(&window, &state);
-    bind_toggle_fullscreen(&window);
     window.window().set_maximized(true);
     sync_initial_schema_selection(&window, &state);
 
@@ -54,19 +58,30 @@ fn sync_initial_schema_selection(window: &AppWindow, state: &Rc<RefCell<DesktopS
     apply_schema_selection(window, &current.tables, schema.as_str());
 }
 
+fn bind_select_source(window: &AppWindow) {
+    let weak_window = window.as_weak();
+
+    window.on_select_source(move |next_kind, current_kind, current_value| {
+        if let Some(window) = weak_window.upgrade() {
+            save_source_value(&window, current_kind.as_str(), current_value.as_str());
+            window.set_source_input_label(source_input_label(next_kind.as_str()).into());
+            window.set_source_input_value(source_input_value(&window, next_kind.as_str()).into());
+        }
+    });
+}
+
 fn bind_load_source(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
     let weak_window = window.as_weak();
     let callback_state = Rc::clone(state);
 
-    window.on_load_source(move |source_kind, fixture_path, sql_path, database_url| {
+    window.on_load_source(move |source_kind, source_value| {
         if let Some(window) = weak_window.upgrade() {
+            save_source_value(&window, source_kind.as_str(), source_value.as_str());
             load_selected_source(
                 &window,
                 &callback_state,
                 source_kind.as_str(),
-                fixture_path.as_str(),
-                sql_path.as_str(),
-                database_url.as_str(),
+                source_value.as_str(),
             );
         }
     });
@@ -76,26 +91,72 @@ fn load_selected_source(
     window: &AppWindow,
     state: &Rc<RefCell<DesktopState>>,
     source_kind: &str,
-    fixture_path: &str,
-    sql_path: &str,
-    database_url: &str,
+    source_value: &str,
 ) {
     if source_kind == "fixture" {
-        load_fixture_path(window, state, fixture_path);
+        load_fixture_path(window, state, source_value);
         return;
     }
 
     if source_kind == "sql" {
-        load_sql_path(window, state, sql_path);
+        load_sql_path(window, state, source_value);
         return;
     }
 
     if source_kind == "postgres" {
-        load_database_url(window, state, database_url);
+        load_database_url(window, state, source_value);
         return;
     }
 
     window.set_status(format!("SOURCE_KIND_UNSUPPORTED: {}", source_kind).into());
+}
+
+fn save_source_value(window: &AppWindow, source_kind: &str, source_value: &str) {
+    if source_kind == "fixture" {
+        window.set_fixture_path(source_value.into());
+        return;
+    }
+
+    if source_kind == "sql" {
+        window.set_sql_path(source_value.into());
+        return;
+    }
+
+    if source_kind == "postgres" {
+        window.set_database_url(source_value.into());
+    }
+}
+
+fn source_input_value(window: &AppWindow, source_kind: &str) -> String {
+    if source_kind == "fixture" {
+        return window.get_fixture_path().to_string();
+    }
+
+    if source_kind == "sql" {
+        return window.get_sql_path().to_string();
+    }
+
+    if source_kind == "postgres" {
+        return window.get_database_url().to_string();
+    }
+
+    String::new()
+}
+
+fn source_input_label(source_kind: &str) -> &'static str {
+    if source_kind == "fixture" {
+        return "Fixture file";
+    }
+
+    if source_kind == "sql" {
+        return "SQL file";
+    }
+
+    if source_kind == "postgres" {
+        return "Postgres URL";
+    }
+
+    "Source"
 }
 
 fn bind_select_schema(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
@@ -106,22 +167,6 @@ fn bind_select_schema(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
         if let Some(window) = weak_window.upgrade() {
             let current = callback_state.borrow();
             apply_schema_selection(&window, &current.tables, schema.as_str());
-        }
-    });
-}
-
-fn bind_toggle_fullscreen(window: &AppWindow) {
-    let weak_window = window.as_weak();
-
-    window.on_toggle_fullscreen(move || {
-        if let Some(window) = weak_window.upgrade() {
-            if window.window().is_fullscreen() {
-                window.window().set_fullscreen(false);
-                window.window().set_maximized(true);
-                return;
-            }
-
-            window.window().set_fullscreen(true);
         }
     });
 }
