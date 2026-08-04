@@ -1,4 +1,4 @@
-import { Button, LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
+import { Button, ComboBox, LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
 
 component SectionTitle inherits Text {
     color: #111827;
@@ -34,6 +34,7 @@ export component AppWindow inherits Window {
     in-out property <string> source-table;
     in-out property <string> target-table;
     in-out property <string> selected-format: "equation";
+    in-out property <int> selected-format-index: 0;
     in-out property <string> tables-text;
     in-out property <string> output-text;
     in-out property <string> status: "Ready";
@@ -195,39 +196,18 @@ export component AppWindow inherits Window {
 
                         HorizontalLayout {
                             spacing: 8px;
+                            alignment: center;
 
-                            Button {
-                                text: "Equation";
-                                clicked => {
-                                    root.selected-format = "equation";
-                                }
+                            FieldLabel {
+                                text: "Format";
                             }
 
-                            Button {
-                                text: "SQL";
-                                clicked => {
-                                    root.selected-format = "sql";
-                                }
-                            }
-
-                            Button {
-                                text: "Text";
-                                clicked => {
-                                    root.selected-format = "text";
-                                }
-                            }
-
-                            Button {
-                                text: "Mermaid";
-                                clicked => {
-                                    root.selected-format = "mermaid";
-                                }
-                            }
-
-                            Button {
-                                text: "JSON";
-                                clicked => {
-                                    root.selected-format = "json";
+                            ComboBox {
+                                width: 180px;
+                                model: ["equation", "sql", "text", "mermaid", "json"];
+                                current-index <=> root.selected-format-index;
+                                selected(value) => {
+                                    root.selected-format = value;
                                 }
                             }
 
