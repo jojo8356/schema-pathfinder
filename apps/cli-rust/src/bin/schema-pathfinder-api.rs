@@ -87,7 +87,10 @@ fn route_request(request: &mut Request, config: &ApiConfig) -> Response<std::io:
 
 fn list_tables_response(config: &ApiConfig) -> Response<std::io::Cursor<Vec<u8>>> {
     match load_edges_from_env_or_fixture(config.fixture.as_deref()) {
-        Ok(edges) => json_response(StatusCode(200), json!({ "tables": list_tables_from_edges(&edges) })),
+        Ok(edges) => json_response(
+            StatusCode(200),
+            json!({ "tables": list_tables_from_edges(&edges) }),
+        ),
         Err(error) => json_response(StatusCode(500), error_json(error.code, &error.message)),
     }
 }
@@ -96,13 +99,19 @@ fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io:
     let mut body = String::new();
 
     if let Err(error) = request.as_reader().read_to_string(&mut body) {
-        return json_response(StatusCode(400), error_json("REQUEST_READ_FAILED", &error.to_string()));
+        return json_response(
+            StatusCode(400),
+            error_json("REQUEST_READ_FAILED", &error.to_string()),
+        );
     }
 
     let path_request: PathRequest = match serde_json::from_str(&body) {
         Ok(value) => value,
         Err(error) => {
-            return json_response(StatusCode(400), error_json("REQUEST_JSON_INVALID", &error.to_string()));
+            return json_response(
+                StatusCode(400),
+                error_json("REQUEST_JSON_INVALID", &error.to_string()),
+            );
         }
     };
 
@@ -120,7 +129,11 @@ fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io:
         }
     };
 
-    match best_path(&edges, &path_request.source_table, &path_request.target_table) {
+    match best_path(
+        &edges,
+        &path_request.source_table,
+        &path_request.target_table,
+    ) {
         Ok(path) => {
             let rendered = match render_path(&path, format) {
                 Ok(value) => value,
@@ -129,17 +142,23 @@ fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io:
                 }
             };
 
-            json_response(StatusCode(200), json!({
-                "paths": [path],
-                "rendered": rendered
-            }))
+            json_response(
+                StatusCode(200),
+                json!({
+                    "paths": [path],
+                    "rendered": rendered
+                }),
+            )
         }
         Err(error) => {
             if error.code == "NO_DECLARED_FK_PATH" {
-                return json_response(StatusCode(200), json!({
-                    "paths": [],
-                    "noPathReason": "NO_DECLARED_FK_PATH"
-                }));
+                return json_response(
+                    StatusCode(200),
+                    json!({
+                        "paths": [],
+                        "noPathReason": "NO_DECLARED_FK_PATH"
+                    }),
+                );
             }
 
             json_response(StatusCode(400), error_json(error.code, &error.message))
@@ -176,8 +195,12 @@ fn error_json(code: &str, title: &str) -> serde_json::Value {
     })
 }
 
-fn json_response(status: StatusCode, value: serde_json::Value) -> Response<std::io::Cursor<Vec<u8>>> {
-    let header = Header::from_bytes("content-type", "application/json").expect("static header is valid");
+fn json_response(
+    status: StatusCode,
+    value: serde_json::Value,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let header =
+        Header::from_bytes("content-type", "application/json").expect("static header is valid");
 
     Response::from_string(value.to_string())
         .with_status_code(status)

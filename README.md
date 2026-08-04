@@ -36,7 +36,7 @@ Without `--fixture`, the CLI reads PostgreSQL metadata directly through `DATABAS
 ## Surfaces
 
 - `apps/cli-rust`: Rust CLI and Rust local/admin API binary.
-- `packages/core`: TypeScript pathfinding engine, scoring, and renderers.
+- `packages/core`: TypeScript contract mirror retained for current JS contract tests during web migration.
 - `apps/web`: React web UI.
 - `apps/desktop`: Rust/Slint desktop UI.
 
@@ -62,10 +62,8 @@ schema-pathfinder/
   packages/
     contracts/
     core/
-    cli/
   apps/
     cli-rust/
-    api/
     web/
     desktop/
   fixtures/
@@ -81,7 +79,8 @@ pnpm install
 pnpm test
 pnpm typecheck
 cargo test -p schema-pathfinder
-cargo build --release -p schema-pathfinder --bin schema-pathfinder --bin schema-pathfinder-api
+cargo build --release -p schema-pathfinder --bin schema-pathfinder
+cargo build --release -p schema-pathfinder --features api --bin schema-pathfinder-api
 node scripts/build_deb.mjs
 node scripts/build_appimage.mjs
 ```

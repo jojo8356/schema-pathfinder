@@ -11,9 +11,9 @@ The implementation order follows the BMAD readiness correction.
 5. Path search and no-path result.
 6. Scoring and shared renderers.
 7. CLI.
-8. NestJS API adapter.
-9. Web UI.
-10. Desktop UI.
+8. Rust admin/local API binary.
+9. Web UI consuming the Rust API contract.
+10. Desktop UI using the Rust core locally, with no backend URL.
 11. DressShot validation and release hardening.
 
 ## Definition of done

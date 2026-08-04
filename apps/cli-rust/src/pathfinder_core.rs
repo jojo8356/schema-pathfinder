@@ -99,7 +99,11 @@ pub fn parse_format(value: &str) -> Result<OutputFormat, PathfinderError> {
         "mermaid" => Ok(OutputFormat::Mermaid),
         _ => Err(PathfinderError {
             code: "UNSUPPORTED_FORMAT",
-            message: format!("Unsupported format: {}. Supported formats: {}", value, SUPPORTED_FORMATS.join(", ")),
+            message: format!(
+                "Unsupported format: {}. Supported formats: {}",
+                value,
+                SUPPORTED_FORMATS.join(", ")
+            ),
         }),
     }
 }
@@ -115,24 +119,34 @@ pub fn format_name(format: OutputFormat) -> &'static str {
 }
 
 pub fn load_edges_from_fixture(path: &str) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
-    let content = fs::read_to_string(path).map_err(|error| pathfinder_error("FIXTURE_READ_FAILED", error))?;
-    let fixture: Fixture = serde_json::from_str(&content).map_err(|error| pathfinder_error("FIXTURE_JSON_INVALID", error))?;
+    let content =
+        fs::read_to_string(path).map_err(|error| pathfinder_error("FIXTURE_READ_FAILED", error))?;
+    let fixture: Fixture = serde_json::from_str(&content)
+        .map_err(|error| pathfinder_error("FIXTURE_JSON_INVALID", error))?;
     Ok(fixture.edges)
 }
 
-pub fn load_edges_from_env_or_fixture(fixture: Option<&str>) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
+pub fn load_edges_from_env_or_fixture(
+    fixture: Option<&str>,
+) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
     if let Some(path) = fixture {
         return load_edges_from_fixture(path);
     }
 
-    let database_url = env::var("DATABASE_URL").map_err(|error| pathfinder_error("DB_CONFIG_MISSING", error))?;
+    let database_url =
+        env::var("DATABASE_URL").map_err(|error| pathfinder_error("DB_CONFIG_MISSING", error))?;
     discover_postgres_foreign_keys(&database_url)
 }
 
-pub fn discover_postgres_foreign_keys(database_url: &str) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
-    let mut client = Client::connect(database_url, NoTls).map_err(|error| pathfinder_error("DB_CONNECT_FAILED", error))?;
+pub fn discover_postgres_foreign_keys(
+    database_url: &str,
+) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
+    let mut client = Client::connect(database_url, NoTls)
+        .map_err(|error| pathfinder_error("DB_CONNECT_FAILED", error))?;
     let schemas = vec!["public"];
-    let rows = client.query(POSTGRES_FK_SQL, &[&schemas]).map_err(|error| pathfinder_error("DB_METADATA_FAILED", error))?;
+    let rows = client
+        .query(POSTGRES_FK_SQL, &[&schemas])
+        .map_err(|error| pathfinder_error("DB_METADATA_FAILED", error))?;
     let mut edges = Vec::new();
 
     for row in rows {
@@ -155,7 +169,11 @@ pub fn discover_postgres_foreign_keys(database_url: &str) -> Result<Vec<ForeignK
     Ok(edges)
 }
 
-pub fn best_path(edges: &[ForeignKeyEdge], source_table: &str, target_table: &str) -> Result<ScoredPath, PathfinderError> {
+pub fn best_path(
+    edges: &[ForeignKeyEdge],
+    source_table: &str,
+    target_table: &str,
+) -> Result<ScoredPath, PathfinderError> {
     let tables = list_tables_from_edges(edges);
     let source = resolve_table(&tables, source_table).ok_or_else(|| PathfinderError {
         code: "TABLE_NOT_FOUND",
@@ -193,20 +211,30 @@ pub fn render_tables(tables: &[TableIdentifier]) -> String {
         return "NO_TABLES".to_string();
     }
 
-    tables.iter().map(table_key).collect::<Vec<String>>().join("\n")
+    tables
+        .iter()
+        .map(table_key)
+        .collect::<Vec<String>>()
+        .join("\n")
 }
 
 pub fn render_path(path: &ScoredPath, format: OutputFormat) -> Result<String, PathfinderError> {
     match format {
         OutputFormat::Text => Ok(render_text(path)),
         OutputFormat::Equation => Ok(render_equation(path)),
-        OutputFormat::Json => serde_json::to_string_pretty(path).map_err(|error| pathfinder_error("JSON_RENDER_FAILED", error)),
+        OutputFormat::Json => serde_json::to_string_pretty(path)
+            .map_err(|error| pathfinder_error("JSON_RENDER_FAILED", error)),
         OutputFormat::Sql => Ok(render_sql(path)),
         OutputFormat::Mermaid => Ok(render_mermaid(path)),
     }
 }
 
-fn find_paths(edges: &[ForeignKeyEdge], source: &TableIdentifier, target: &TableIdentifier, max_depth: usize) -> Vec<ScoredPath> {
+fn find_paths(
+    edges: &[ForeignKeyEdge],
+    source: &TableIdentifier,
+    target: &TableIdentifier,
+    max_depth: usize,
+) -> Vec<ScoredPath> {
     let adjacency = build_adjacency(edges);
     let mut queue: VecDeque<Vec<ForeignKeyEdge>> = VecDeque::new();
     let mut results = Vec::new();
@@ -242,7 +270,12 @@ fn find_paths(edges: &[ForeignKeyEdge], source: &TableIdentifier, target: &Table
         }
     }
 
-    results.sort_by(|left, right| right.score.cmp(&left.score).then_with(|| left.length.cmp(&right.length)));
+    results.sort_by(|left, right| {
+        right
+            .score
+            .cmp(&left.score)
+            .then_with(|| left.length.cmp(&right.length))
+    });
     results.truncate(3);
     results
 }
@@ -251,7 +284,10 @@ fn build_adjacency(edges: &[ForeignKeyEdge]) -> BTreeMap<String, Vec<ForeignKeyE
     let mut adjacency: BTreeMap<String, Vec<ForeignKeyEdge>> = BTreeMap::new();
 
     for edge in edges {
-        adjacency.entry(table_key(&edge.from)).or_default().push(edge.clone());
+        adjacency
+            .entry(table_key(&edge.from))
+            .or_default()
+            .push(edge.clone());
     }
 
     adjacency
@@ -267,7 +303,11 @@ fn contains_table(edges: &[ForeignKeyEdge], table: &TableIdentifier) -> bool {
     false
 }
 
-fn score_path(source: &TableIdentifier, target: &TableIdentifier, edges: Vec<ForeignKeyEdge>) -> ScoredPath {
+fn score_path(
+    source: &TableIdentifier,
+    target: &TableIdentifier,
+    edges: Vec<ForeignKeyEdge>,
+) -> ScoredPath {
     let mut score = 0;
     let mut contributions = Vec::new();
     let mut evidence = BTreeSet::new();
@@ -348,14 +388,26 @@ fn render_text(path: &ScoredPath) -> String {
     }
 
     let mut lines = vec![
-        format!("Path 1 score {} {} length {}", path.score, path.evidence.join(","), path.length),
+        format!(
+            "Path 1 score {} {} length {}",
+            path.score,
+            path.evidence.join(","),
+            path.length
+        ),
         table_path.join(" -> "),
         String::new(),
         "Edges:".to_string(),
     ];
 
     for (index, edge) in path.edges.iter().enumerate() {
-        lines.push(format!("{}. {}.{} -> {}.{}", index + 1, edge.from.table, edge.from_column, edge.to.table, edge.to_column));
+        lines.push(format!(
+            "{}. {}.{} -> {}.{}",
+            index + 1,
+            edge.from.table,
+            edge.from_column,
+            edge.to.table,
+            edge.to_column
+        ));
     }
 
     lines.join("\n")
@@ -364,7 +416,12 @@ fn render_text(path: &ScoredPath) -> String {
 fn render_equation(path: &ScoredPath) -> String {
     path.edges
         .iter()
-        .map(|edge| format!("{}.{} = {}.{}", edge.from.table, edge.from_column, edge.to.table, edge.to_column))
+        .map(|edge| {
+            format!(
+                "{}.{} = {}.{}",
+                edge.from.table, edge.from_column, edge.to.table, edge.to_column
+            )
+        })
         .collect::<Vec<String>>()
         .join("\n-> ")
 }

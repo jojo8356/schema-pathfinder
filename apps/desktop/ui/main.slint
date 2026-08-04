@@ -1,0 +1,284 @@
+import { Button, LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
+
+component SectionTitle inherits Text {
+    color: #111827;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+component FieldLabel inherits Text {
+    color: #374151;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+component MutedText inherits Text {
+    color: #6b7280;
+    font-size: 12px;
+}
+component Panel inherits Rectangle {
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: #e5e7eb;
+    background: #ffffff;
+}
+
+export component AppWindow inherits Window {
+    width: 1080px;
+    height: 720px;
+    title: "Schema Pathfinder";
+    background: #f8fafc;
+
+    in-out property <string> fixture-path;
+    in-out property <string> source-table;
+    in-out property <string> target-table;
+    in-out property <string> selected-format: "equation";
+    in-out property <string> tables-text;
+    in-out property <string> output-text;
+    in-out property <string> status: "Ready";
+
+    callback load-fixture(string);
+    callback load-database();
+    callback find-path(string, string, string);
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+
+        Rectangle {
+            height: 56px;
+            background: #ffffff;
+            border-width: 1px;
+            border-color: #e5e7eb;
+
+            HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                spacing: 12px;
+                alignment: center;
+
+                Text {
+                    text: "Schema Pathfinder";
+                    color: #0f172a;
+                    font-size: 18px;
+                    font-weight: 800;
+                }
+
+                MutedText {
+                    text: "Local FK path inspector";
+                }
+            }
+        }
+
+        HorizontalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            Panel {
+                width: 310px;
+
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 14px;
+
+                    SectionTitle {
+                        text: "Source";
+                    }
+
+                    FieldLabel {
+                        text: "Fixture file";
+                    }
+
+                    LineEdit {
+                        text <=> root.fixture-path;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+
+                        Button {
+                            text: "Load file";
+                            clicked => {
+                                root.load-fixture(root.fixture-path);
+                            }
+                        }
+
+                        Button {
+                            text: "Use DATABASE_URL";
+                            clicked => {
+                                root.load-database();
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: #e5e7eb;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+
+                        SectionTitle {
+                            text: "Tables";
+                        }
+
+                        MutedText {
+                            text: "schema.table";
+                        }
+                    }
+
+                    ScrollView {
+                        viewport-height: 430px;
+
+                        Text {
+                            text: root.tables-text;
+                            color: #111827;
+                            font-size: 13px;
+                            font-family: "monospace";
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 16px;
+
+                Panel {
+                    height: 210px;
+
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 14px;
+
+                        SectionTitle {
+                            text: "Path";
+                        }
+
+                        GridLayout {
+                            spacing: 12px;
+
+                            FieldLabel {
+                                text: "From table";
+                                row: 0;
+                                col: 0;
+                            }
+
+                            FieldLabel {
+                                text: "To table";
+                                row: 0;
+                                col: 1;
+                            }
+
+                            LineEdit {
+                                text <=> root.source-table;
+                                row: 1;
+                                col: 0;
+                            }
+
+                            LineEdit {
+                                text <=> root.target-table;
+                                row: 1;
+                                col: 1;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            Button {
+                                text: "Equation";
+                                clicked => {
+                                    root.selected-format = "equation";
+                                }
+                            }
+
+                            Button {
+                                text: "SQL";
+                                clicked => {
+                                    root.selected-format = "sql";
+                                }
+                            }
+
+                            Button {
+                                text: "Text";
+                                clicked => {
+                                    root.selected-format = "text";
+                                }
+                            }
+
+                            Button {
+                                text: "Mermaid";
+                                clicked => {
+                                    root.selected-format = "mermaid";
+                                }
+                            }
+
+                            Button {
+                                text: "JSON";
+                                clicked => {
+                                    root.selected-format = "json";
+                                }
+                            }
+
+                            Rectangle {
+                                horizontal-stretch: 1;
+                            }
+
+                            Button {
+                                text: "Find path";
+                                clicked => {
+                                    root.find-path(root.source-table, root.target-table, root.selected-format);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Panel {
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+
+                        HorizontalLayout {
+                            spacing: 8px;
+
+                            SectionTitle {
+                                text: "Result";
+                            }
+
+                            MutedText {
+                                text: root.selected-format;
+                            }
+                        }
+
+                        TextEdit {
+                            text <=> root.output-text;
+                            font-size: 13px;
+                            font-family: "monospace";
+                            vertical-stretch: 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            height: 34px;
+            background: #ffffff;
+            border-width: 1px;
+            border-color: #e5e7eb;
+
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                alignment: center;
+
+                MutedText {
+                    text: root.status;
+                }
+            }
+        }
+    }
+}

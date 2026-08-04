@@ -1,7 +1,7 @@
 use lexopt::prelude::*;
 use schema_pathfinder::pathfinder_core::{
-    best_path, list_tables_from_edges, load_edges_from_env_or_fixture, parse_format, pathfinder_error,
-    render_path, render_tables, OutputFormat, PathfinderError, SUPPORTED_FORMATS,
+    best_path, list_tables_from_edges, load_edges_from_env_or_fixture, parse_format,
+    pathfinder_error, render_path, render_tables, OutputFormat, PathfinderError, SUPPORTED_FORMATS,
 };
 
 #[derive(Debug)]
@@ -15,7 +15,10 @@ struct Args {
 enum CommandMode {
     Help,
     Tables,
-    Path { source_table: String, target_table: String },
+    Path {
+        source_table: String,
+        target_table: String,
+    },
 }
 
 fn main() {
@@ -59,7 +62,10 @@ fn parse_args() -> Result<Args, PathfinderError> {
     let mut fixture = None;
     let mut top_level_tables = false;
 
-    while let Some(arg) = parser.next().map_err(|error| pathfinder_error("ARGS_INVALID", error))? {
+    while let Some(arg) = parser
+        .next()
+        .map_err(|error| pathfinder_error("ARGS_INVALID", error))?
+    {
         match arg {
             Long("help") | Short('h') => {
                 return Ok(Args {
@@ -72,17 +78,27 @@ fn parse_args() -> Result<Args, PathfinderError> {
                 top_level_tables = true;
             }
             Long("format") => {
-                let raw_value = parser.value().map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
-                let value: String = raw_value.parse().map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                let raw_value = parser
+                    .value()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                let value: String = raw_value
+                    .parse()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
                 format = parse_format(&value)?;
             }
             Long("fixture") => {
-                let raw_value = parser.value().map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
-                let value: String = raw_value.parse().map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                let raw_value = parser
+                    .value()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                let value: String = raw_value
+                    .parse()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
                 fixture = Some(value);
             }
             Value(value) => {
-                let parsed: String = value.string().map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                let parsed: String = value
+                    .string()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
                 values.push(parsed);
             }
             other => {
@@ -100,7 +116,10 @@ fn parse_args() -> Result<Args, PathfinderError> {
     })
 }
 
-fn command_from_values(top_level_tables: bool, values: Vec<String>) -> Result<CommandMode, PathfinderError> {
+fn command_from_values(
+    top_level_tables: bool,
+    values: Vec<String>,
+) -> Result<CommandMode, PathfinderError> {
     if top_level_tables {
         return Ok(CommandMode::Tables);
     }
@@ -150,11 +169,15 @@ fn print_help() {
     println!("  -h, --help               display help for command");
     println!();
     println!("Commands:");
-    println!("  tables                   List available tables from fixture or PostgreSQL metadata");
+    println!(
+        "  tables                   List available tables from fixture or PostgreSQL metadata"
+    );
     println!("  path <source> <target>   Find a declared FK path between two tables");
     println!();
     println!("Examples:");
-    println!("  schema-pathfinder --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json");
+    println!(
+        "  schema-pathfinder --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json"
+    );
     println!("  schema-pathfinder tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json");
     println!("  schema-pathfinder path ClothingItem User --format equation --fixture fixtures/postgres/dressshot_seed_fk_edges.json");
     println!("  schema-pathfinder path ClothingItem User --format sql --fixture fixtures/postgres/dressshot_seed_fk_edges.json");
