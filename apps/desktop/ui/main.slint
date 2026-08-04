@@ -49,6 +49,22 @@ component ToolbarButton inherits Rectangle {
     }
 }
 
+component TableScrollbar inherits Rectangle {
+    width: 8px;
+    height: 300px;
+    border-radius: 4px;
+    background: #e5e7eb;
+
+    Rectangle {
+        x: 2px;
+        y: 4px;
+        width: 4px;
+        height: 64px;
+        border-radius: 2px;
+        background: #94a3b8;
+    }
+}
+
 export component AppWindow inherits Window {
     width: 1080px;
     height: 720px;
@@ -200,17 +216,25 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    ScrollView {
+                    HorizontalLayout {
                         height: 300px;
-                        vertical-scrollbar-policy: ScrollBarPolicy.always-on;
+                        spacing: 8px;
 
-                        Text {
-                            text: root.tables-text;
-                            color: #111827;
-                            font-size: 13px;
-                            font-family: "monospace";
-                            wrap: word-wrap;
+                        ScrollView {
+                            horizontal-stretch: 1;
+                            vertical-scrollbar-policy: ScrollBarPolicy.always-on;
+                            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+
+                            Text {
+                                text: root.tables-text;
+                                color: #111827;
+                                font-size: 13px;
+                                font-family: "monospace";
+                                wrap: word-wrap;
+                            }
                         }
+
+                        TableScrollbar { }
                     }
                 }
             }
