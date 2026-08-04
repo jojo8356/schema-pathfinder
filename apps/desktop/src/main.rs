@@ -24,6 +24,7 @@ fn main() -> Result<(), slint::PlatformError> {
     bind_load_sql(&window, &state);
     bind_load_database(&window, &state);
     bind_find_path(&window, &state);
+    bind_toggle_fullscreen(&window);
     window.window().set_maximized(true);
 
     window.run()
@@ -74,6 +75,22 @@ fn bind_load_database(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
     window.on_load_database(move |database_url| {
         if let Some(window) = weak_window.upgrade() {
             load_database_url(&window, &callback_state, database_url.as_str());
+        }
+    });
+}
+
+fn bind_toggle_fullscreen(window: &AppWindow) {
+    let weak_window = window.as_weak();
+
+    window.on_toggle_fullscreen(move || {
+        if let Some(window) = weak_window.upgrade() {
+            if window.window().is_fullscreen() {
+                window.window().set_fullscreen(false);
+                window.window().set_maximized(true);
+                return;
+            }
+
+            window.window().set_fullscreen(true);
         }
     });
 }

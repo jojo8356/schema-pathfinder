@@ -1,4 +1,4 @@
-import { Button, ComboBox, LineEdit, TextEdit } from "std-widgets.slint";
+import { Button, ComboBox, LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
 
 component SectionTitle inherits Text {
     color: #111827;
@@ -44,6 +44,7 @@ export component AppWindow inherits Window {
     callback load-sql(string);
     callback load-database(string);
     callback find-path(string, string, string);
+    callback toggle-fullscreen();
 
     VerticalLayout {
         padding: 0px;
@@ -70,6 +71,17 @@ export component AppWindow inherits Window {
 
                 MutedText {
                     text: "Local FK path inspector";
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                Button {
+                    text: "Fullscreen";
+                    clicked => {
+                        root.toggle-fullscreen();
+                    }
                 }
             }
         }
@@ -162,9 +174,9 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    Rectangle {
+                    ScrollView {
                         height: 300px;
-                        clip: true;
+                        vertical-scrollbar-policy: ScrollBarPolicy.always-on;
 
                         Text {
                             text: root.tables-text;
