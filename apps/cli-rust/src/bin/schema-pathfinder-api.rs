@@ -1,10 +1,12 @@
 use schema_pathfinder::pathfinder_core::{
-    best_path, list_tables_from_edges, load_edges_from_env_or_fixture, parse_format, render_path,
-    PathfinderError,
+    best_path, load_schema_from_env_or_fixture, parse_format, render_path, PathfinderError,
+    SchemaMetadata,
 };
 use serde::Deserialize;
 use serde_json::json;
 use std::env;
+use std::fs;
+use std::path::{Component, Path, PathBuf};
 use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 
 #[derive(Debug)]
@@ -12,6 +14,7 @@ struct ApiConfig {
     bind: String,
     fixture: Option<String>,
     admin_token: Option<String>,
+    web_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,11 +40,15 @@ fn read_config() -> ApiConfig {
     let bind = env::var("SCHEMA_PATHFINDER_BIND").unwrap_or_else(|_| "127.0.0.1:8787".to_string());
     let fixture = env::var("SCHEMA_PATHFINDER_FIXTURE").ok();
     let admin_token = env::var("SCHEMA_PATHFINDER_ADMIN_TOKEN").ok();
+    let web_dir = env::var("SCHEMA_PATHFINDER_WEB_DIR")
+        .ok()
+        .map(PathBuf::from);
 
     ApiConfig {
         bind,
         fixture,
         admin_token,
+        web_dir,
     }
 }
 
@@ -66,31 +73,51 @@ fn handle_request(mut request: Request, config: &ApiConfig) {
 }
 
 fn route_request(request: &mut Request, config: &ApiConfig) -> Response<std::io::Cursor<Vec<u8>>> {
+    if request.method() == &Method::Options {
+        return empty_response(StatusCode(204));
+    }
+
     if request.method() == &Method::Get && request.url() == "/api/health" {
         return json_response(StatusCode(200), json!({ "status": "ok" }));
     }
 
+    if request.url().starts_with("/api/") || request.url().starts_with("/admin/") {
+        return route_api_request(request, config);
+    }
+
+    static_response(request, config)
+}
+
+fn route_api_request(
+    request: &mut Request,
+    config: &ApiConfig,
+) -> Response<std::io::Cursor<Vec<u8>>> {
     if is_authorized(request, config) == false {
         return json_response(StatusCode(403), error_json("FORBIDDEN", "Forbidden"));
     }
 
-    if request.method() == &Method::Get && request.url() == "/admin/pathfinder/tables" {
+    if request.method() == &Method::Get && is_tables_route(request.url()) {
         return list_tables_response(config);
     }
 
-    if request.method() == &Method::Post && request.url() == "/admin/pathfinder/path" {
+    if request.method() == &Method::Post && is_path_route(request.url()) {
         return path_response(request, config);
     }
 
     json_response(StatusCode(404), error_json("NOT_FOUND", "Not found"))
 }
 
+fn is_tables_route(url: &str) -> bool {
+    url == "/api/tables" || url == "/admin/pathfinder/tables"
+}
+
+fn is_path_route(url: &str) -> bool {
+    url == "/api/path" || url == "/admin/pathfinder/path"
+}
+
 fn list_tables_response(config: &ApiConfig) -> Response<std::io::Cursor<Vec<u8>>> {
-    match load_edges_from_env_or_fixture(config.fixture.as_deref()) {
-        Ok(edges) => json_response(
-            StatusCode(200),
-            json!({ "tables": list_tables_from_edges(&edges) }),
-        ),
+    match load_schema(config) {
+        Ok(schema) => json_response(StatusCode(200), json!({ "tables": schema.tables })),
         Err(error) => json_response(StatusCode(500), error_json(error.code, &error.message)),
     }
 }
@@ -122,7 +149,7 @@ fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io:
         }
     };
 
-    let edges = match load_edges_from_env_or_fixture(config.fixture.as_deref()) {
+    let schema = match load_schema(config) {
         Ok(value) => value,
         Err(error) => {
             return json_response(StatusCode(500), error_json(error.code, &error.message));
@@ -130,7 +157,7 @@ fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io:
     };
 
     match best_path(
-        &edges,
+        &schema.edges,
         &path_request.source_table,
         &path_request.target_table,
     ) {
@@ -166,11 +193,67 @@ fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io:
     }
 }
 
+fn load_schema(config: &ApiConfig) -> Result<SchemaMetadata, PathfinderError> {
+    load_schema_from_env_or_fixture(config.fixture.as_deref())
+}
+
+fn static_response(request: &Request, config: &ApiConfig) -> Response<std::io::Cursor<Vec<u8>>> {
+    let Some(web_dir) = config.web_dir.as_ref() else {
+        return json_response(StatusCode(404), error_json("NOT_FOUND", "Not found"));
+    };
+
+    let path = static_file_path(web_dir, request.url());
+
+    match fs::read(&path) {
+        Ok(bytes) => bytes_response(StatusCode(200), bytes, content_type_for_path(&path)),
+        Err(_) => match fs::read(web_dir.join("index.html")) {
+            Ok(bytes) => bytes_response(StatusCode(200), bytes, "text/html; charset=utf-8"),
+            Err(error) => json_response(
+                StatusCode(404),
+                error_json("STATIC_NOT_FOUND", &error.to_string()),
+            ),
+        },
+    }
+}
+
+fn static_file_path(web_dir: &Path, url: &str) -> PathBuf {
+    let route = url.split('?').next().unwrap_or("/");
+    let relative = route.trim_start_matches('/');
+    let mut path = PathBuf::from(web_dir);
+
+    if relative.is_empty() {
+        path.push("index.html");
+        return path;
+    }
+
+    for component in Path::new(relative).components() {
+        if let Component::Normal(value) = component {
+            path.push(value);
+        }
+    }
+
+    path
+}
+
+fn content_type_for_path(path: &Path) -> &'static str {
+    match path.extension().and_then(|value| value.to_str()) {
+        Some("html") => "text/html; charset=utf-8",
+        Some("js") => "text/javascript; charset=utf-8",
+        Some("css") => "text/css; charset=utf-8",
+        Some("svg") => "image/svg+xml",
+        Some("json") => "application/json",
+        Some("png") => "image/png",
+        _ => "application/octet-stream",
+    }
+}
+
 fn is_authorized(request: &Request, config: &ApiConfig) -> bool {
     if let Some(token) = config.admin_token.as_ref() {
         if header_value(request, "x-schema-pathfinder-admin-token") == Some(token.as_str()) {
             return true;
         }
+
+        return false;
     }
 
     true
@@ -195,14 +278,32 @@ fn error_json(code: &str, title: &str) -> serde_json::Value {
     })
 }
 
+fn empty_response(status: StatusCode) -> Response<std::io::Cursor<Vec<u8>>> {
+    Response::from_data(Vec::new())
+        .with_status_code(status)
+        .with_header(cors_header())
+}
+
 fn json_response(
     status: StatusCode,
     value: serde_json::Value,
 ) -> Response<std::io::Cursor<Vec<u8>>> {
-    let header =
-        Header::from_bytes("content-type", "application/json").expect("static header is valid");
+    bytes_response(status, value.to_string().into_bytes(), "application/json")
+}
 
-    Response::from_string(value.to_string())
+fn bytes_response(
+    status: StatusCode,
+    bytes: Vec<u8>,
+    content_type: &str,
+) -> Response<std::io::Cursor<Vec<u8>>> {
+    let header = Header::from_bytes("content-type", content_type).expect("static header is valid");
+
+    Response::from_data(bytes)
         .with_status_code(status)
         .with_header(header)
+        .with_header(cors_header())
+}
+
+fn cors_header() -> Header {
+    Header::from_bytes("access-control-allow-origin", "*").expect("static header is valid")
 }
