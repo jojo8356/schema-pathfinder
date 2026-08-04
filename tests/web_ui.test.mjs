@@ -11,6 +11,12 @@ describe("web UI", () => {
     assert.doesNotMatch(webApp, /join\("\\\\n"\)/);
   });
 
+  it("shows an explicit empty-table state", () => {
+    assert.match(webApp, /function renderTablesText/);
+    assert.match(webApp, /return "NO_TABLES"/);
+    assert.match(webApp, /renderTablesText\(tables\)/);
+  });
+
   it("keeps the tables list inside the source panel", () => {
     assert.match(webCss, /\.tables-list \{/);
     assert.match(webCss, /overflow: auto/);

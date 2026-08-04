@@ -173,7 +173,7 @@ function App() {
             <h2>Tables</h2>
             <span>schema.table</span>
           </div>
-          <pre className="tables-list">{tables.map((table) => table.schema + "." + table.table).join("\n")}</pre>
+          <pre className="tables-list">{renderTablesText(tables)}</pre>
         </aside>
 
         <section className="main-column">
@@ -228,6 +228,14 @@ function App() {
       </section>
     </main>
   );
+}
+
+function renderTablesText(tables: TableIdentifier[]): string {
+  if (tables.length === 0) {
+    return "NO_TABLES";
+  }
+
+  return tables.map((table) => table.schema + "." + table.table).join("\n");
 }
 
 function sourcePayload(sourceKind: SourceKind, sourceValue: string): SourcePayload {
