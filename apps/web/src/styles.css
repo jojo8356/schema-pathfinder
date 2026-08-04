@@ -33,7 +33,7 @@ button:hover { background: #f8fafc; }
 .divider { height: 1px; background: #e5e7eb; }
 .panel-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .panel-title-row span { color: #6b7280; font-size: 12px; }
-.tables-list { flex: 1; display: flex; align-items: center; justify-content: center; margin: 0; color: #111827; font-size: 13px; line-height: 18px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.tables-list { flex: 1; min-height: 0; margin: 0; color: #111827; font-size: 13px; line-height: 18px; white-space: pre-wrap; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .main-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .path-panel { display: flex; flex-direction: column; gap: 14px; }
 .path-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }

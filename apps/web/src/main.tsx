@@ -173,7 +173,7 @@ function App() {
             <h2>Tables</h2>
             <span>schema.table</span>
           </div>
-          <pre className="tables-list">{tables.map((table) => table.schema + "." + table.table).join("\\n")}</pre>
+          <pre className="tables-list">{tables.map((table) => table.schema + "." + table.table).join("\n")}</pre>
         </aside>
 
         <section className="main-column">
