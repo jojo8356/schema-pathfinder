@@ -11,7 +11,10 @@
     "test": "node --test tests/*.test.mjs",
     "test:contracts": "node --test tests/contract_fixtures.test.mjs",
     "typecheck": "node scripts/check_scaffold.mjs",
-    "lint": "node scripts/check_scaffold.mjs && node scripts/check_contract_fixtures.mjs"
+    "lint": "node scripts/check_scaffold.mjs && node scripts/check_contract_fixtures.mjs",
+    "build:desktop:appimage": "node scripts/build_desktop_appimage.mjs",
+    "build:desktop:deb": "node scripts/build_desktop_deb.mjs",
+    "build:desktop:packages": "node scripts/build_desktop_deb.mjs && node scripts/build_desktop_appimage.mjs"
   },
   "engines": {
     "node": ">=22"
