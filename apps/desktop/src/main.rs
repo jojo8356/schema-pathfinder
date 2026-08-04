@@ -24,7 +24,7 @@ fn main() -> Result<(), slint::PlatformError> {
     bind_load_sql(&window, &state);
     bind_load_database(&window, &state);
     bind_find_path(&window, &state);
-    window.window().set_fullscreen(true);
+    window.window().set_maximized(true);
 
     window.run()
 }
