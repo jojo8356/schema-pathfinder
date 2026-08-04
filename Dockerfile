@@ -17,7 +17,7 @@ RUN cargo build --release -p schema-pathfinder --features api --bin schema-pathf
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
-RUN apt-get update   && apt-get install -y --no-install-recommends ca-certificates   && rm -rf /var/lib/apt/lists/*
+RUN apt-get update   && apt-get install -y --no-install-recommends ca-certificates curl   && rm -rf /var/lib/apt/lists/*
 COPY --from=api-build /app/target/release/schema-pathfinder-api /usr/local/bin/schema-pathfinder-api
 COPY --from=web-build /app/apps/web/dist /app/web
 COPY fixtures fixtures

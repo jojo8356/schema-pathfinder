@@ -47,7 +47,7 @@ fn load_initial_edges(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
         return;
     }
 
-    window.set_status("No fixture loaded".into());
+    window.set_output_text("No fixture loaded".into());
     window.set_tables_text("NO_TABLES".into());
 }
 
@@ -108,7 +108,7 @@ fn load_selected_source(
         return;
     }
 
-    window.set_status(format!("SOURCE_KIND_UNSUPPORTED: {}", source_kind).into());
+    window.set_output_text(format!("SOURCE_KIND_UNSUPPORTED: {}", source_kind).into());
 }
 
 fn save_source_value(window: &AppWindow, source_kind: &str, source_value: &str) {
@@ -192,10 +192,10 @@ fn bind_find_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
 fn load_fixture_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>, path: &str) {
     match load_schema_from_fixture(path) {
         Ok(schema) => {
-            replace_schema(window, state, schema, format!("Loaded fixture {}", path));
+            replace_schema(window, state, schema);
         }
         Err(error) => {
-            window.set_status(format!("{}: {}", error.code, error.message).into());
+            window.set_output_text(format!("{}: {}", error.code, error.message).into());
         }
     }
 }
@@ -204,16 +204,16 @@ fn load_sql_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>, raw_path
     let path = raw_path.trim();
 
     if path.is_empty() {
-        window.set_status("SQL_PATH_MISSING: choose a PostgreSQL .sql file".into());
+        window.set_output_text("SQL_PATH_MISSING: choose a PostgreSQL .sql file".into());
         return;
     }
 
     match load_schema_from_sql_file(path) {
         Ok(schema) => {
-            replace_schema(window, state, schema, format!("Loaded SQL schema {}", path));
+            replace_schema(window, state, schema);
         }
         Err(error) => {
-            window.set_status(format!("{}: {}", error.code, error.message).into());
+            window.set_output_text(format!("{}: {}", error.code, error.message).into());
         }
     }
 }
@@ -230,16 +230,16 @@ fn load_database_url(
         return;
     }
 
-    load_database_url_value(window, state, database_url, "Loaded Postgres URL metadata");
+    load_database_url_value(window, state, database_url);
 }
 
 fn load_database_url_from_env(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
     match env::var("DATABASE_URL") {
         Ok(database_url) => {
-            load_database_url_value(window, state, &database_url, "Loaded DATABASE_URL metadata");
+            load_database_url_value(window, state, &database_url);
         }
         Err(error) => {
-            window.set_status(format!("DB_CONFIG_MISSING: {}", error).into());
+            window.set_output_text(format!("DB_CONFIG_MISSING: {}", error).into());
         }
     }
 }
@@ -248,14 +248,13 @@ fn load_database_url_value(
     window: &AppWindow,
     state: &Rc<RefCell<DesktopState>>,
     database_url: &str,
-    status: &str,
 ) {
     match discover_postgres_schema(database_url) {
         Ok(schema) => {
-            replace_schema(window, state, schema, status.to_string());
+            replace_schema(window, state, schema);
         }
         Err(error) => {
-            window.set_status(format!("{}: {}", error.code, error.message).into());
+            window.set_output_text(format!("{}: {}", error.code, error.message).into());
         }
     }
 }
@@ -264,7 +263,6 @@ fn replace_schema(
     window: &AppWindow,
     state: &Rc<RefCell<DesktopState>>,
     schema: SchemaMetadata,
-    status: String,
 ) {
     let tables_text = render_tables(&schema.tables);
     let schema_names = schema_options(&schema.tables);
@@ -280,7 +278,6 @@ fn replace_schema(
     window.set_schema_options(string_model(schema_names));
     apply_schema_selection(window, &state.borrow().tables, &selected_schema);
     window.set_output_text("".into());
-    window.set_status(status.into());
 }
 
 fn render_selected_path(
@@ -294,14 +291,14 @@ fn render_selected_path(
     let current = state.borrow();
 
     if current.edges.is_empty() {
-        window.set_status("NO_TABLES: load a fixture, SQL file, or DATABASE_URL first".into());
+        window.set_output_text("NO_TABLES: load a fixture, SQL file, or DATABASE_URL first".into());
         return;
     }
 
     let format = match parse_format(format_name) {
         Ok(value) => value,
         Err(error) => {
-            window.set_status(format!("{}: {}", error.code, error.message).into());
+            window.set_output_text(format!("{}: {}", error.code, error.message).into());
             return;
         }
     };
@@ -312,8 +309,7 @@ fn render_selected_path(
     let path = match best_path(&current.edges, &source_name, &target_name) {
         Ok(value) => value,
         Err(error) => {
-            window.set_status(format!("{}: {}", error.code, error.message).into());
-            window.set_output_text("".into());
+            window.set_output_text(format!("{}: {}", error.code, error.message).into());
             return;
         }
     };
@@ -321,12 +317,9 @@ fn render_selected_path(
     match render_path(&path, format) {
         Ok(rendered) => {
             window.set_output_text(rendered.into());
-            window.set_status(
-                format!("Path found: {} hop(s), score {}", path.length, path.score).into(),
-            );
         }
         Err(error) => {
-            window.set_status(format!("{}: {}", error.code, error.message).into());
+            window.set_output_text(format!("{}: {}", error.code, error.message).into());
         }
     }
 }
