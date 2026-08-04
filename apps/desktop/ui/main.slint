@@ -23,6 +23,32 @@ component Panel inherits Rectangle {
     background: #ffffff;
 }
 
+component ToolbarButton inherits Rectangle {
+    callback clicked();
+    in property <string> text;
+
+    width: 104px;
+    height: 32px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: #cbd5e1;
+    background: #ffffff;
+
+    Text {
+        text: root.text;
+        color: #111827;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
 export component AppWindow inherits Window {
     width: 1080px;
     height: 720px;
@@ -77,9 +103,7 @@ export component AppWindow inherits Window {
                     horizontal-stretch: 1;
                 }
 
-                Button {
-                    width: 112px;
-                    height: 34px;
+                ToolbarButton {
                     text: "Fullscreen";
                     clicked => {
                         root.toggle-fullscreen();
