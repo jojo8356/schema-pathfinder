@@ -30,6 +30,32 @@ describe("desktop UI", () => {
     assert.doesNotMatch(desktopUi, /GlobalScrollbar \{ \}/);
   });
 
+  it("uses one load button with a source kind selector", () => {
+    const sourceSection = segmentBetween(desktopUi, 'text: "Source";', 'text: "Tables";');
+
+    assert.equal(sourceSection.includes('model: ["fixture", "sql", "postgres"];'), true);
+    assert.equal(sourceSection.includes("selected-source-kind"), true);
+    assert.equal(sourceSection.includes("root.load-source(root.selected-source-kind, root.fixture-path, root.sql-path, root.database-url);"), true);
+    assert.match(sourceSection, /text: "Load"/);
+    assert.doesNotMatch(sourceSection, /text: "Load file"/);
+    assert.doesNotMatch(sourceSection, /text: "Load SQL"/);
+    assert.doesNotMatch(sourceSection, /text: "Load Postgres"/);
+  });
+
+  it("uses selectors for schema, source table, and target table", () => {
+    const pathSection = segmentBetween(desktopUi, 'text: "Path";', 'text: "Format";');
+
+    assert.equal(pathSection.includes('text: "Schema";'), true);
+    assert.equal(pathSection.includes('text: "From table";'), true);
+    assert.equal(pathSection.includes('text: "To table";'), true);
+    assert.equal(pathSection.includes('model: root.schema-options;'), true);
+    assert.equal(pathSection.includes('model: root.table-options;'), true);
+    assert.equal(pathSection.includes('root.select-schema(value);'), true);
+    assert.equal(pathSection.includes('root.source-table = value;'), true);
+    assert.equal(pathSection.includes('root.target-table = value;'), true);
+    assert.doesNotMatch(pathSection, /LineEdit/);
+  });
+
   it("keeps the tables list scrollbar hidden until the table list overflows", () => {
     const tablesSection = segmentBetween(desktopUi, 'text: "Tables";', 'VerticalLayout {\n                spacing: 16px;');
 

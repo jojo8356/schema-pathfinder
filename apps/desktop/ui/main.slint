@@ -59,18 +59,25 @@ export component AppWindow inherits Window {
     in-out property <string> fixture-path;
     in-out property <string> sql-path;
     in-out property <string> database-url;
+    in-out property <string> selected-schema: "public";
+    in-out property <int> selected-schema-index: 0;
+    in-out property <[string]> schema-options;
     in-out property <string> source-table;
+    in-out property <int> source-table-index: 0;
     in-out property <string> target-table;
+    in-out property <int> target-table-index: 0;
+    in-out property <[string]> table-options;
     in-out property <string> selected-format: "equation";
     in-out property <int> selected-format-index: 0;
+    in-out property <string> selected-source-kind: "fixture";
+    in-out property <int> selected-source-index: 0;
     in-out property <string> tables-text;
     in-out property <string> output-text;
     in-out property <string> status: "Ready";
 
-    callback load-fixture(string);
-    callback load-sql(string);
-    callback load-database(string);
-    callback find-path(string, string, string);
+    callback load-source(string, string, string, string);
+    callback select-schema(string);
+    callback find-path(string, string, string, string);
     callback toggle-fullscreen();
 
     VerticalLayout {
@@ -158,34 +165,22 @@ export component AppWindow inherits Window {
                         text <=> root.database-url;
                     }
 
-                    GridLayout {
+                    HorizontalLayout {
                         spacing: 8px;
 
-                        Button {
-                            text: "Load file";
-                            row: 0;
-                            col: 0;
-                            clicked => {
-                                root.load-fixture(root.fixture-path);
+                        ComboBox {
+                            horizontal-stretch: 1;
+                            model: ["fixture", "sql", "postgres"];
+                            current-index <=> root.selected-source-index;
+                            selected(value) => {
+                                root.selected-source-kind = value;
                             }
                         }
 
                         Button {
-                            text: "Load SQL";
-                            row: 0;
-                            col: 1;
+                            text: "Load";
                             clicked => {
-                                root.load-sql(root.sql-path);
-                            }
-                        }
-
-                        Button {
-                            text: "Load Postgres";
-                            row: 1;
-                            col: 0;
-                            colspan: 2;
-                            clicked => {
-                                root.load-database(root.database-url);
+                                root.load-source(root.selected-source-kind, root.fixture-path, root.sql-path, root.database-url);
                             }
                         }
                     }
@@ -246,27 +241,52 @@ export component AppWindow inherits Window {
                             spacing: 12px;
 
                             FieldLabel {
-                                text: "From table";
+                                text: "Schema";
                                 row: 0;
                                 col: 0;
                             }
 
                             FieldLabel {
-                                text: "To table";
+                                text: "From table";
                                 row: 0;
                                 col: 1;
                             }
 
-                            LineEdit {
-                                text <=> root.source-table;
-                                row: 1;
-                                col: 0;
+                            FieldLabel {
+                                text: "To table";
+                                row: 0;
+                                col: 2;
                             }
 
-                            LineEdit {
-                                text <=> root.target-table;
+                            ComboBox {
+                                model: root.schema-options;
+                                current-index <=> root.selected-schema-index;
+                                row: 1;
+                                col: 0;
+                                selected(value) => {
+                                    root.selected-schema = value;
+                                    root.select-schema(value);
+                                }
+                            }
+
+                            ComboBox {
+                                model: root.table-options;
+                                current-index <=> root.source-table-index;
                                 row: 1;
                                 col: 1;
+                                selected(value) => {
+                                    root.source-table = value;
+                                }
+                            }
+
+                            ComboBox {
+                                model: root.table-options;
+                                current-index <=> root.target-table-index;
+                                row: 1;
+                                col: 2;
+                                selected(value) => {
+                                    root.target-table = value;
+                                }
                             }
                         }
 
@@ -294,7 +314,7 @@ export component AppWindow inherits Window {
                             Button {
                                 text: "Find path";
                                 clicked => {
-                                    root.find-path(root.source-table, root.target-table, root.selected-format);
+                                    root.find-path(root.selected-schema, root.source-table, root.target-table, root.selected-format);
                                 }
                             }
                         }
