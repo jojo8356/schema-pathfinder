@@ -74,6 +74,30 @@ pub struct SchemaMetadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PostgresArchitectureTree {
+    pub databases: Vec<DatabaseArchitecture>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseArchitecture {
+    pub name: String,
+    pub schemas: Vec<SchemaArchitecture>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaArchitecture {
+    pub name: String,
+    pub tables: Vec<TableArchitecture>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TableArchitecture {
+    pub name: String,
+    pub outgoing: Vec<ForeignKeyEdge>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForeignKeyEdge {
     #[serde(rename = "constraintName")]
     pub constraint_name: String,
@@ -234,9 +258,15 @@ pub fn discover_postgres_schemas(database_url: &str) -> Result<Vec<String>, Path
 }
 
 pub fn discover_postgres_schema(database_url: &str) -> Result<SchemaMetadata, PathfinderError> {
+    discover_postgres_schema_for_schemas(database_url, &["public".to_string()])
+}
+
+pub fn discover_postgres_schema_for_schemas(
+    database_url: &str,
+    schemas: &[String],
+) -> Result<SchemaMetadata, PathfinderError> {
     let mut client = Client::connect(database_url, NoTls)
         .map_err(|error| pathfinder_error("DB_CONNECT_FAILED", error))?;
-    let schemas = vec!["public"];
     let table_rows = client
         .query(POSTGRES_TABLE_SQL, &[&schemas])
         .map_err(|error| pathfinder_error("DB_METADATA_FAILED", error))?;
@@ -271,6 +301,190 @@ pub fn discover_postgres_schema(database_url: &str) -> Result<SchemaMetadata, Pa
     }
 
     Ok(SchemaMetadata { tables, edges })
+}
+
+pub fn discover_postgres_architecture_tree(
+    database_url: &str,
+) -> Result<PostgresArchitectureTree, PathfinderError> {
+    let database_names = discover_postgres_databases(database_url)?;
+    let mut databases = Vec::new();
+
+    for database_name in database_names {
+        let database_url = database_url_for_database(database_url, &database_name);
+        let database = match discover_database_architecture(&database_url, &database_name) {
+            Ok(value) => value,
+            Err(error) => DatabaseArchitecture {
+                name: database_name,
+                schemas: Vec::new(),
+                error: Some(format!("{}: {}", error.code, error.message)),
+            },
+        };
+
+        databases.push(database);
+    }
+
+    Ok(PostgresArchitectureTree { databases })
+}
+
+fn discover_database_architecture(
+    database_url: &str,
+    database_name: &str,
+) -> Result<DatabaseArchitecture, PathfinderError> {
+    let schema_names = discover_postgres_schemas(database_url)?;
+    let schema = discover_postgres_schema_for_schemas(database_url, &schema_names)?;
+    let mut schemas = Vec::new();
+
+    for schema_name in schema_names {
+        let mut tables = Vec::new();
+
+        for table in schema
+            .tables
+            .iter()
+            .filter(|table| table.schema == schema_name)
+        {
+            let outgoing = schema
+                .edges
+                .iter()
+                .filter(|edge| edge.from == *table)
+                .cloned()
+                .collect();
+
+            tables.push(TableArchitecture {
+                name: table.table.clone(),
+                outgoing,
+            });
+        }
+
+        schemas.push(SchemaArchitecture {
+            name: schema_name,
+            tables,
+        });
+    }
+
+    Ok(DatabaseArchitecture {
+        name: database_name.to_string(),
+        schemas,
+        error: None,
+    })
+}
+
+pub fn database_url_for_database(database_url: &str, database_name: &str) -> String {
+    let Some(scheme_index) = database_url.find("://") else {
+        return database_url.to_string();
+    };
+    let authority_start = scheme_index + 3;
+    let authority_and_path = &database_url[authority_start..];
+    let Some(path_offset) = authority_and_path.find('/') else {
+        return format!("{}/{}", database_url, database_name);
+    };
+    let path_start = authority_start + path_offset;
+    let prefix = &database_url[..path_start + 1];
+    let path_and_query = &database_url[path_start + 1..];
+    let query_start = path_and_query.find('?');
+    let query = match query_start {
+        Some(index) => &path_and_query[index..],
+        None => "",
+    };
+
+    format!("{}{}{}", prefix, database_name, query)
+}
+
+pub fn render_postgres_architecture_tree(tree: &PostgresArchitectureTree) -> String {
+    if tree.databases.is_empty() {
+        return "NO_DATABASES".to_string();
+    }
+
+    let mut lines = Vec::new();
+    lines.push("postgres".to_string());
+
+    for database_index in 0..tree.databases.len() {
+        let database = &tree.databases[database_index];
+        let database_last = database_index + 1 == tree.databases.len();
+        let database_branch = tree_branch(database_last);
+        lines.push(format!("{} database {}", database_branch, database.name));
+        let database_prefix = tree_prefix(database_last);
+
+        if let Some(error) = database.error.as_ref() {
+            lines.push(format!(
+                "{}{} error {}",
+                database_prefix,
+                tree_branch(true),
+                error
+            ));
+            continue;
+        }
+
+        if database.schemas.is_empty() {
+            lines.push(format!(
+                "{}{} NO_SCHEMAS",
+                database_prefix,
+                tree_branch(true)
+            ));
+            continue;
+        }
+
+        for schema_index in 0..database.schemas.len() {
+            let schema = &database.schemas[schema_index];
+            let schema_last = schema_index + 1 == database.schemas.len();
+            lines.push(format!(
+                "{}{} schema {}",
+                database_prefix,
+                tree_branch(schema_last),
+                schema.name
+            ));
+            let schema_prefix = format!("{}{}", database_prefix, tree_prefix(schema_last));
+
+            if schema.tables.is_empty() {
+                lines.push(format!("{}{} NO_TABLES", schema_prefix, tree_branch(true)));
+                continue;
+            }
+
+            for table_index in 0..schema.tables.len() {
+                let table = &schema.tables[table_index];
+                let table_last = table_index + 1 == schema.tables.len();
+                lines.push(format!(
+                    "{}{} table {}",
+                    schema_prefix,
+                    tree_branch(table_last),
+                    table.name
+                ));
+                let table_prefix = format!("{}{}", schema_prefix, tree_prefix(table_last));
+
+                for edge_index in 0..table.outgoing.len() {
+                    let edge = &table.outgoing[edge_index];
+                    let edge_last = edge_index + 1 == table.outgoing.len();
+                    lines.push(format!(
+                        "{}{} fk {} -> {}.{}.{} ({})",
+                        table_prefix,
+                        tree_branch(edge_last),
+                        edge.from_column,
+                        edge.to.schema,
+                        edge.to.table,
+                        edge.to_column,
+                        edge.constraint_name
+                    ));
+                }
+            }
+        }
+    }
+
+    lines.join("\n")
+}
+
+fn tree_branch(last: bool) -> &'static str {
+    if last {
+        return "`--";
+    }
+
+    "|--"
+}
+
+fn tree_prefix(last: bool) -> &'static str {
+    if last {
+        return "   ";
+    }
+
+    "|  "
 }
 
 pub fn discover_postgres_foreign_keys(

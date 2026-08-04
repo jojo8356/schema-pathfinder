@@ -1,8 +1,9 @@
 use lexopt::prelude::*;
 use schema_pathfinder::pathfinder_core::{
-    best_path, discover_postgres_databases, discover_postgres_schema, discover_postgres_schemas,
-    load_schema_from_env_or_fixture, load_schema_from_fixture, load_schema_from_sql_file,
-    parse_format, pathfinder_error, render_names, render_path, render_tables, OutputFormat,
+    best_path, discover_postgres_architecture_tree, discover_postgres_databases,
+    discover_postgres_schema, discover_postgres_schemas, load_schema_from_env_or_fixture,
+    load_schema_from_fixture, load_schema_from_sql_file, parse_format, pathfinder_error,
+    render_names, render_path, render_postgres_architecture_tree, render_tables, OutputFormat,
     PathfinderError, SchemaMetadata, SUPPORTED_FORMATS,
 };
 use std::env;
@@ -22,6 +23,7 @@ enum CommandMode {
     Tables,
     Databases,
     Schemas,
+    Tree,
     Fixture,
     Path {
         source_table: String,
@@ -63,6 +65,12 @@ fn run() -> Result<(), PathfinderError> {
             println!("{}", render_names(&schemas, "NO_SCHEMAS"));
             Ok(())
         }
+        CommandMode::Tree => {
+            let database_url = load_postgres_url(&args)?;
+            let tree = discover_postgres_architecture_tree(&database_url)?;
+            println!("{}", render_postgres_architecture_tree(&tree));
+            Ok(())
+        }
         CommandMode::Path {
             ref source_table,
             ref target_table,
@@ -92,6 +100,7 @@ fn parse_args() -> Result<Args, PathfinderError> {
     let mut top_level_tables = false;
     let mut top_level_databases = false;
     let mut top_level_schemas = false;
+    let mut top_level_tree = false;
 
     while let Some(arg) = parser
         .next()
@@ -115,6 +124,9 @@ fn parse_args() -> Result<Args, PathfinderError> {
             }
             Long("schemas") => {
                 top_level_schemas = true;
+            }
+            Long("tree") => {
+                top_level_tree = true;
             }
             Long("format") => {
                 let raw_value = parser
@@ -168,6 +180,7 @@ fn parse_args() -> Result<Args, PathfinderError> {
         top_level_tables,
         top_level_databases,
         top_level_schemas,
+        top_level_tree,
         values,
     )?;
 
@@ -228,15 +241,20 @@ fn command_from_values(
     top_level_tables: bool,
     top_level_databases: bool,
     top_level_schemas: bool,
+    top_level_tree: bool,
     values: Vec<String>,
 ) -> Result<CommandMode, PathfinderError> {
-    let top_level_count =
-        count_top_level_commands(top_level_tables, top_level_databases, top_level_schemas);
+    let top_level_count = count_top_level_commands(
+        top_level_tables,
+        top_level_databases,
+        top_level_schemas,
+        top_level_tree,
+    );
 
     if top_level_count > 1 {
         return Err(PathfinderError {
             code: "ARGS_INVALID",
-            message: "choose only one of --tables, --databases, or --schemas".to_string(),
+            message: "choose only one of --tables, --databases, --schemas, or --tree".to_string(),
         });
     }
 
@@ -250,6 +268,10 @@ fn command_from_values(
 
     if top_level_schemas {
         return Ok(CommandMode::Schemas);
+    }
+
+    if top_level_tree {
+        return Ok(CommandMode::Tree);
     }
 
     if values.is_empty() {
@@ -289,6 +311,17 @@ fn command_from_values(
         });
     }
 
+    if values[0] == "tree" {
+        if values.len() == 1 {
+            return Ok(CommandMode::Tree);
+        }
+
+        return Err(PathfinderError {
+            code: "ARGS_INVALID",
+            message: "tree does not accept positional arguments".to_string(),
+        });
+    }
+
     if values[0] == "fixture" {
         if values.len() == 1 {
             return Ok(CommandMode::Fixture);
@@ -320,7 +353,7 @@ fn command_from_values(
     })
 }
 
-fn count_top_level_commands(tables: bool, databases: bool, schemas: bool) -> usize {
+fn count_top_level_commands(tables: bool, databases: bool, schemas: bool, tree: bool) -> usize {
     let mut count = 0;
 
     if tables {
@@ -332,6 +365,10 @@ fn count_top_level_commands(tables: bool, databases: bool, schemas: bool) -> usi
     }
 
     if schemas {
+        count += 1;
+    }
+
+    if tree {
         count += 1;
     }
 
@@ -347,6 +384,7 @@ fn print_help() {
     println!("  --tables                 list available tables and exit");
     println!("  --databases, --dbs       list PostgreSQL databases and exit");
     println!("  --schemas                list PostgreSQL schemas and exit");
+    println!("  --tree                   print PostgreSQL server architecture tree and exit");
     println!("  --database-url <url>     read PostgreSQL metadata from this connection URL");
     println!("  --fixture <path>         read FK metadata from a fixture JSON file");
     println!("  --sql <path>             read PostgreSQL DDL SQL and convert it to metadata");
@@ -358,6 +396,7 @@ fn print_help() {
     );
     println!("  databases, dbs           List PostgreSQL databases");
     println!("  schemas                  List PostgreSQL schemas in the selected database");
+    println!("  tree                     Print all visible databases, schemas, tables, and FKs");
     println!("  fixture                  Print generated fixture JSON from the selected source");
     println!("  path <source> <target>   Find a declared FK path between two tables");
     println!();
@@ -376,6 +415,9 @@ fn print_help() {
     );
     println!(
         "  schema-pathfinder schemas --database-url postgres://user:pass@localhost:5432/postgres"
+    );
+    println!(
+        "  schema-pathfinder tree --database-url postgres://user:pass@localhost:5432/postgres"
     );
     println!("  schema-pathfinder --tables --sql schema.sql");
     println!("  schema-pathfinder fixture --sql schema.sql");
