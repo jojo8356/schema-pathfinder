@@ -90,9 +90,10 @@ The current scaffold tests use Node's built-in test runner and do not require de
 
 ## Packaged Artifacts
 
-The CLI artifacts are local-only and contain only the Rust CLI binary plus documentation and fixtures:
+The packaged artifacts are local-only. The CLI artifacts contain the Rust CLI binary plus documentation and fixtures; the desktop AppImage contains the Slint GUI binary plus the same local fixture bundle:
 
 - `dist/schema-pathfinder_0.1.0_amd64.deb`
 - `dist/schema-pathfinder-0.1.0-x86_64.AppImage`
+- `dist/schema-pathfinder-desktop-0.1.0-x86_64.AppImage`
 
 The Rust API is built as `target/release/schema-pathfinder-api` and is a separate server binary.
