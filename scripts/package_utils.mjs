@@ -2,6 +2,7 @@ import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, rmSync, writeFi
 import { dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
 import { packageManifest } from "./package_manifest.mjs";
 
 export { packageManifest };
@@ -118,6 +119,32 @@ export function appImageToolArgs(appDir, artifactPath) {
   }
 
   return [appDir, artifactPath];
+}
+
+export function findAppImageTool() {
+  const candidates = [];
+
+  if (process.env.APPIMAGETOOL) {
+    candidates.push(process.env.APPIMAGETOOL);
+  }
+
+  const home = homedir();
+
+  if (home) {
+    candidates.push(join(home, ".local", "bin", "appimagetool"));
+  }
+
+  candidates.push("/usr/local/bin/appimagetool", "/usr/bin/appimagetool");
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate) === true) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    "appimagetool not found. Install it, put it in ~/.local/bin, or set APPIMAGETOOL to its path."
+  );
 }
 
 export function assertRuntimeReady() {

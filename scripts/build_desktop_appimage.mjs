@@ -8,6 +8,7 @@ import {
   createSvgIcon,
   distRoot,
   ensureDirectory,
+  findAppImageTool,
   packageManifest,
   repoRoot,
   resetDirectory,
@@ -88,20 +89,4 @@ function createDesktopFile(executableName) {
     "Icon=" + executableName + "\n" +
     "Terminal=false\n" +
     "Categories=Development;Database;\n";
-}
-
-function findAppImageTool() {
-  const candidates = [
-    "/home/jojokes/.local/bin/appimagetool",
-    "/usr/local/bin/appimagetool",
-    "/usr/bin/appimagetool"
-  ];
-
-  for (const candidate of candidates) {
-    if (existsSync(candidate) === true) {
-      return candidate;
-    }
-  }
-
-  throw new Error("appimagetool not found. Install appimagetool or put it in ~/.local/bin.");
 }

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag to publish the artifacts to (for example v0.1.2). Leave empty to only keep the workflow artifacts."
+        description: "Release tag to publish the artifacts to (for example v0.1.3). Leave empty to only keep the workflow artifacts."
         required: false
         default: ""
   push:
@@ -17,9 +17,13 @@ on:
 permissions:
   contents: write
 
+env:
+  APPIMAGE_EXTRACT_AND_RUN: 1
+  APPIMAGE_RUNTIME_FILE: /tmp/runtime-x86_64
+
 jobs:
   linux-packages:
-    name: Linux binaries and Debian packages
+    name: Linux binaries, Debian packages and AppImages
     runs-on: ubuntu-22.04
 
     steps:
@@ -32,6 +36,8 @@ jobs:
           sudo apt-get install --yes \
             dpkg-dev \
             fakeroot \
+            desktop-file-utils \
+            zsync \
             libfontconfig1-dev \
             libx11-xcb-dev \
             libxcb1-dev \
@@ -41,6 +47,18 @@ jobs:
             libxkbcommon-dev \
             libxkbcommon-x11-dev \
             libwayland-dev
+
+      - name: Install appimagetool
+        run: |
+          curl --fail --location --silent --show-error \
+            --output /tmp/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          curl --fail --location --silent --show-error \
+            --output "$APPIMAGE_RUNTIME_FILE" \
+            https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64
+          chmod +x /tmp/appimagetool "$APPIMAGE_RUNTIME_FILE"
+          sudo install -m 0755 /tmp/appimagetool /usr/local/bin/appimagetool
+          appimagetool --version
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -64,6 +82,11 @@ jobs:
           node scripts/build_deb.mjs
           node scripts/build_desktop_deb.mjs
 
+      - name: Build AppImages
+        run: |
+          node scripts/build_appimage.mjs
+          node scripts/build_desktop_appimage.mjs
+
       - name: Inspect Debian packages
         run: |
           for package in dist/*.deb; do
@@ -80,6 +103,12 @@ jobs:
           schema-pathfinder --tables --fixture /opt/schema-pathfinder/fixtures/postgres/dressshot_seed_fk_edges.json
           test -x /usr/bin/schema-pathfinder-desktop
 
+      - name: Verify AppImages
+        run: |
+          chmod +x dist/*.AppImage
+          ./dist/schema-pathfinder-*-x86_64.AppImage --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
+          file dist/schema-pathfinder-desktop-*-x86_64.AppImage
+
       - name: Collect release artifacts
         run: |
           mkdir -p artifacts
@@ -90,7 +119,9 @@ jobs:
             schema-pathfinder-linux-x86_64 \
             schema-pathfinder-desktop-linux-x86_64
           cp dist/*.deb artifacts/
+          cp dist/*.AppImage artifacts/
           sha256sum artifacts/* > artifacts/SHA256SUMS
+          ls -lh artifacts/
 
       - name: Upload binaries and packages to workflow artifact
         uses: actions/upload-artifact@v4

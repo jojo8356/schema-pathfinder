@@ -4375,7 +4375,7 @@ dependencies = [
 
 [[package]]
 name = "schema-pathfinder"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "lexopt",
  "postgres",
@@ -4387,7 +4387,7 @@ dependencies = [
 
 [[package]]
 name = "schema-pathfinder-desktop"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "schema-pathfinder",
  "slint",
