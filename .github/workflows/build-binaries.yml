@@ -1,18 +1,25 @@
-name: Build CLI and desktop binaries
+name: Build CLI and desktop packages
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to publish the artifacts to (for example v0.1.2). Leave empty to only keep the workflow artifacts."
+        required: false
+        default: ""
   push:
     branches:
       - main
-      - arena/01a0de73-schema-pathfinder
+      - "arena/**"
+    tags:
+      - "v*"
 
 permissions:
   contents: write
 
 jobs:
-  linux-binaries:
-    name: Linux CLI and desktop binaries
+  linux-packages:
+    name: Linux binaries and Debian packages
     runs-on: ubuntu-22.04
 
     steps:
@@ -23,6 +30,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes \
+            dpkg-dev \
+            fakeroot \
             libfontconfig1-dev \
             libx11-xcb-dev \
             libxcb1-dev \
@@ -36,13 +45,42 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check desktop UI contract
+        run: node --test tests/desktop_ui.test.mjs
+
       - name: Build CLI
         run: cargo build --locked --release -p schema-pathfinder --bin schema-pathfinder
 
       - name: Build desktop GUI
         run: cargo build --locked --release -p schema-pathfinder-desktop
 
-      - name: Collect executables
+      - name: Build Debian packages
+        run: |
+          node scripts/build_deb.mjs
+          node scripts/build_desktop_deb.mjs
+
+      - name: Inspect Debian packages
+        run: |
+          for package in dist/*.deb; do
+            echo "::group::$package"
+            dpkg-deb --info "$package"
+            dpkg-deb --contents "$package"
+            echo "::endgroup::"
+          done
+
+      - name: Verify Debian packages install
+        run: |
+          sudo apt-get install --yes ./dist/schema-pathfinder_*_amd64.deb
+          sudo apt-get install --yes ./dist/schema-pathfinder-desktop_*_amd64.deb
+          schema-pathfinder --tables --fixture /opt/schema-pathfinder/fixtures/postgres/dressshot_seed_fk_edges.json
+          test -x /usr/bin/schema-pathfinder-desktop
+
+      - name: Collect release artifacts
         run: |
           mkdir -p artifacts
           cp target/release/schema-pathfinder artifacts/schema-pathfinder-linux-x86_64
@@ -51,18 +89,39 @@ jobs:
           tar -C artifacts -czf artifacts/schema-pathfinder-linux-x86_64.tar.gz \
             schema-pathfinder-linux-x86_64 \
             schema-pathfinder-desktop-linux-x86_64
+          cp dist/*.deb artifacts/
           sha256sum artifacts/* > artifacts/SHA256SUMS
 
-      - name: Upload binaries to workflow artifact
+      - name: Upload binaries and packages to workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: schema-pathfinder-linux-binaries
+          name: schema-pathfinder-linux-packages
           path: artifacts/
           if-no-files-found: error
           retention-days: 14
 
-      - name: Attach binaries to v0.1.1 release
-        if: github.ref == 'refs/heads/arena/01a0de73-schema-pathfinder'
+      - name: Resolve release tag
+        id: release
+        env:
+          INPUT_TAG: ${{ inputs.release_tag }}
+        run: |
+          if [ "${GITHUB_REF}" != "${GITHUB_REF#refs/tags/}" ]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish artifacts to the GitHub release
+        if: steps.release.outputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload v0.1.1 artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Schema Pathfinder $TAG" \
+              --generate-notes
+          fi
+          gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY" --clobber

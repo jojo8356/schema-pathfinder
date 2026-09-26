@@ -83,10 +83,19 @@ node scripts/build_desktop_appimage.mjs
 
 Les artefacts sont produits dans `dist/` :
 
-- `schema-pathfinder_0.1.0_amd64.deb`
-- `schema-pathfinder-0.1.0-x86_64.AppImage`
-- `schema-pathfinder-desktop_0.1.0_amd64.deb`
-- `schema-pathfinder-desktop-0.1.0-x86_64.AppImage`
+- `schema-pathfinder_0.1.2_amd64.deb`
+- `schema-pathfinder-0.1.2-x86_64.AppImage`
+- `schema-pathfinder-desktop_0.1.2_amd64.deb`
+- `schema-pathfinder-desktop-0.1.2-x86_64.AppImage`
+
+## Installation depuis une release
+
+Chaque release GitHub publie les binaires Linux et les deux paquets Debian construits par CI :
+
+```bash
+sudo apt-get install ./schema-pathfinder_0.1.2_amd64.deb
+sudo apt-get install ./schema-pathfinder-desktop_0.1.2_amd64.deb
+```
 
 ## Documentation
 

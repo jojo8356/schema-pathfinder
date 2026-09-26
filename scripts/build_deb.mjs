@@ -45,6 +45,7 @@ Version: ${packageManifest.version}
 Section: utils
 Priority: optional
 Architecture: amd64
+Depends: ${packageManifest.cliDepends}
 Maintainer: ${packageManifest.maintainer}
 Homepage: ${packageManifest.homepage}
 Description: ${packageManifest.description}
@@ -55,7 +56,7 @@ Description: ${packageManifest.description}
 
 chmodSync(debianRoot, 0o755);
 
-execFileSync("dpkg-deb", ["--build", packageRoot, artifactPath], {
+execFileSync("dpkg-deb", ["--root-owner-group", "--build", packageRoot, artifactPath], {
   cwd: repoRoot(),
   stdio: "inherit"
 });

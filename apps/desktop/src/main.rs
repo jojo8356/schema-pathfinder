@@ -31,7 +31,6 @@ fn main() -> Result<(), slint::PlatformError> {
     bind_load_source(&window, &state);
     bind_select_schema(&window, &state);
     bind_find_path(&window, &state);
-    window.window().set_maximized(true);
     sync_initial_schema_selection(&window, &state);
 
     window.run()
