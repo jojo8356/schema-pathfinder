@@ -1,0 +1,62 @@
+name: Build CLI and desktop binaries
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - arena/01a0de73-schema-pathfinder
+
+permissions:
+  contents: read
+
+jobs:
+  linux-binaries:
+    name: Linux CLI and desktop binaries
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            libfontconfig1-dev \
+            libx11-xcb-dev \
+            libxcb1-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libwayland-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build CLI
+        run: cargo build --locked --release -p schema-pathfinder --bin schema-pathfinder
+
+      - name: Build desktop GUI
+        run: cargo build --locked --release -p schema-pathfinder-desktop
+
+      - name: Collect executables
+        run: |
+          mkdir -p artifacts
+          cp target/release/schema-pathfinder artifacts/schema-pathfinder-linux-x86_64
+          cp target/release/schema-pathfinder-desktop artifacts/schema-pathfinder-desktop-linux-x86_64
+          chmod +x artifacts/schema-pathfinder-linux-x86_64 artifacts/schema-pathfinder-desktop-linux-x86_64
+          tar -C artifacts -czf artifacts/schema-pathfinder-linux-x86_64.tar.gz \
+            schema-pathfinder-linux-x86_64 \
+            schema-pathfinder-desktop-linux-x86_64
+          sha256sum artifacts/* > artifacts/SHA256SUMS
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-pathfinder-linux-binaries
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
