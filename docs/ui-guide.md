@@ -20,8 +20,22 @@ L'UI web utilise React et appelle l'API Rust. Elle est utile quand on veut une i
 - Un seul champ de source, avec label dynamique selon le type sélectionné.
 - Sélecteurs pour les schémas et tables afin d'éviter les fautes de saisie.
 - Rendu équation avec saut de ligne à chaque transition `->`.
-- Layout pensé pour un affichage plein écran de bureau.
+- Fenêtre desktop librement redimensionnable, sans taille figée.
 - Pas de footer ni texte décoratif inutile dans la surface principale.
+
+## Redimensionnement de la fenêtre desktop
+
+La fenêtre Slint ne fixe plus `width` et `height` : dans Slint, poser ces deux propriétés sur un `Window` verrouille la fenêtre à une taille fixe et le gestionnaire de fenêtres refuse tout redimensionnement. Seules les contraintes de layout sont déclarées :
+
+- `preferred-width` / `preferred-height` : taille d'ouverture (1280 x 820).
+- `min-width` / `min-height` : taille minimale utilisable (560 x 460).
+- Les panneaux utilisent `min-*`, `preferred-*` et `*-stretch` au lieu de hauteurs et largeurs codées en dur.
+
+Le layout est responsive :
+
+- au-dessus de 900 px de large, la colonne Source reste à gauche et les panneaux Path et Result occupent la largeur restante ;
+- en dessous de 900 px, l'interface bascule sur une seule colonne défilante afin qu'aucun contrôle ne soit tronqué ;
+- le panneau Result absorbe l'espace vertical supplémentaire, les listes Databases et Tables affichent une barre de défilement uniquement quand leur contenu dépasse.
 
 ## Parcours conseillé
 

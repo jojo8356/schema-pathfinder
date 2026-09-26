@@ -44,7 +44,7 @@ writeControlFile(debianRoot, desktopPackageName);
 
 chmodSync(debianRoot, 0o755);
 
-execFileSync("dpkg-deb", ["--build", packageRoot, artifactPath], {
+execFileSync("dpkg-deb", ["--root-owner-group", "--build", packageRoot, artifactPath], {
   cwd: repoRoot(),
   stdio: "inherit"
 });
@@ -100,6 +100,7 @@ function writeControlFile(debianRoot, packageName) {
       "Section: utils\n" +
       "Priority: optional\n" +
       "Architecture: amd64\n" +
+      "Depends: " + packageManifest.desktopDepends + "\n" +
       "Maintainer: " + packageManifest.maintainer + "\n" +
       "Homepage: " + packageManifest.homepage + "\n" +
       "Description: " + packageManifest.productName + " desktop UI\n" +

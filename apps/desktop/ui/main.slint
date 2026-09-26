@@ -16,6 +16,7 @@ component MutedText inherits Text {
     color: #6b7280;
     font-size: 12px;
 }
+
 component Panel inherits Rectangle {
     border-radius: 8px;
     border-width: 1px;
@@ -23,12 +24,299 @@ component Panel inherits Rectangle {
     background: #ffffff;
 }
 
+component Separator inherits Rectangle {
+    height: 1px;
+    background: #e5e7eb;
+}
+
+component MonospaceList inherits ScrollView {
+    in property <string> text;
+
+    vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+    horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+    viewport-width: self.visible-width;
+
+    Text {
+        width: root.visible-width;
+        text: root.text;
+        color: #111827;
+        font-size: 13px;
+        font-family: "monospace";
+        wrap: word-wrap;
+    }
+}
+
+component SourcePanel inherits Panel {
+    in-out property <string> source-input-label: "Fixture file";
+    in-out property <string> source-input-value;
+    in-out property <string> selected-source-kind: "fixture";
+    in-out property <int> selected-source-index: 0;
+    in-out property <string> databases-text;
+    in-out property <string> tables-text;
+
+    callback select-source(string, string, string);
+    callback load-source(string, string);
+
+    min-width: 280px;
+    min-height: 260px;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        SectionTitle {
+            text: "Source";
+            vertical-stretch: 0;
+        }
+
+        FieldLabel {
+            text: root.source-input-label;
+            vertical-stretch: 0;
+        }
+
+        LineEdit {
+            height: 38px;
+            vertical-stretch: 0;
+            text <=> root.source-input-value;
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            vertical-stretch: 0;
+
+            ComboBox {
+                horizontal-stretch: 1;
+                min-width: 110px;
+                model: ["fixture", "sql", "postgres"];
+                current-index <=> root.selected-source-index;
+                selected(value) => {
+                    root.select-source(value, root.selected-source-kind, root.source-input-value);
+                    root.selected-source-kind = value;
+                }
+            }
+
+            Button {
+                text: "Load";
+                horizontal-stretch: 0;
+                clicked => {
+                    root.load-source(root.selected-source-kind, root.source-input-value);
+                }
+            }
+        }
+
+        Separator {
+            vertical-stretch: 0;
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            vertical-stretch: 0;
+
+            SectionTitle {
+                text: "Databases";
+            }
+
+            MutedText {
+                text: "database";
+            }
+        }
+
+        MonospaceList {
+            text: root.databases-text;
+            min-height: 56px;
+            preferred-height: 92px;
+            vertical-stretch: 1;
+        }
+
+        Separator {
+            vertical-stretch: 0;
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            vertical-stretch: 0;
+
+            SectionTitle {
+                text: "Tables";
+            }
+
+            MutedText {
+                text: "schema.table";
+            }
+        }
+
+        MonospaceList {
+            text: root.tables-text;
+            min-height: 90px;
+            preferred-height: 210px;
+            vertical-stretch: 3;
+        }
+    }
+}
+
+component PathPanel inherits Panel {
+    in property <[string]> schema-options;
+    in property <[string]> table-options;
+    in-out property <string> selected-schema: "public";
+    in-out property <int> selected-schema-index: 0;
+    in-out property <string> source-table;
+    in-out property <int> source-table-index: 0;
+    in-out property <string> target-table;
+    in-out property <int> target-table-index: 0;
+    in-out property <string> selected-format: "equation";
+    in-out property <int> selected-format-index: 0;
+    in-out property <bool> compact: false;
+
+    callback select-schema(string);
+    callback find-path(string, string, string, string);
+
+    min-width: 320px;
+    min-height: root.compact ? 250px : 186px;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        SectionTitle {
+            text: "Path";
+        }
+
+        GridLayout {
+            spacing: 12px;
+
+            Row {
+                FieldLabel {
+                    text: "Schema";
+                }
+
+                FieldLabel {
+                    text: "From table";
+                }
+
+                FieldLabel {
+                    text: "To table";
+                }
+            }
+
+            Row {
+                ComboBox {
+                    min-width: 120px;
+                    model: root.schema-options;
+                    current-index <=> root.selected-schema-index;
+                    selected(value) => {
+                        root.selected-schema = value;
+                        root.select-schema(value);
+                    }
+                }
+
+                ComboBox {
+                    min-width: 120px;
+                    model: root.table-options;
+                    current-index <=> root.source-table-index;
+                    selected(value) => {
+                        root.source-table = value;
+                    }
+                }
+
+                ComboBox {
+                    min-width: 120px;
+                    model: root.table-options;
+                    current-index <=> root.target-table-index;
+                    selected(value) => {
+                        root.target-table = value;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: stretch;
+
+            FieldLabel {
+                text: "Format";
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            ComboBox {
+                min-width: 130px;
+                preferred-width: 180px;
+                max-width: 220px;
+                horizontal-stretch: 0;
+                model: ["equation", "sql", "text", "mermaid", "json"];
+                current-index <=> root.selected-format-index;
+                selected(value) => {
+                    root.selected-format = value;
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                min-width: 0px;
+            }
+
+            Button {
+                text: "Find path";
+                horizontal-stretch: 0;
+                clicked => {
+                    root.find-path(root.selected-schema, root.source-table, root.target-table, root.selected-format);
+                }
+            }
+        }
+    }
+}
+
+component ResultPanel inherits Panel {
+    in-out property <string> output-text;
+    in property <string> selected-format;
+
+    min-width: 320px;
+    min-height: 150px;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        HorizontalLayout {
+            spacing: 8px;
+            vertical-stretch: 0;
+
+            SectionTitle {
+                text: "Result";
+            }
+
+            MutedText {
+                text: root.selected-format;
+            }
+        }
+
+        TextEdit {
+            text <=> root.output-text;
+            font-size: 13px;
+            font-family: "monospace";
+            wrap: TextWrap.no-wrap;
+            vertical-stretch: 1;
+            min-height: 90px;
+        }
+    }
+}
 
 export component AppWindow inherits Window {
-    width: 1080px;
-    height: 720px;
     title: "Schema Pathfinder";
     background: #f8fafc;
+
+    // The window stays freely resizable because only the preferred and minimum
+    // sizes are set. Setting `width` or `height` on a Slint `Window` would lock
+    // the window to a fixed size and defeat every layout constraint below.
+    preferred-width: 1280px;
+    preferred-height: 820px;
+    min-width: 560px;
+    min-height: 460px;
+
+    // Below this width the sidebar no longer fits next to the result panel, so
+    // the whole UI switches to a single scrollable column.
+    property <bool> compact: root.width < 900px;
 
     in-out property <string> fixture-path;
     in-out property <string> sql-path;
@@ -62,6 +350,7 @@ export component AppWindow inherits Window {
 
         Rectangle {
             height: 56px;
+            vertical-stretch: 0;
             background: #ffffff;
             border-width: 1px;
             border-color: #e5e7eb;
@@ -70,268 +359,133 @@ export component AppWindow inherits Window {
                 padding-left: 20px;
                 padding-right: 20px;
                 spacing: 12px;
-                alignment: center;
+                alignment: start;
 
                 Text {
                     text: "Schema Pathfinder";
                     color: #0f172a;
                     font-size: 18px;
                     font-weight: 800;
+                    vertical-alignment: center;
                 }
-
             }
         }
 
-        ScrollView {
+        // Wide layout: sidebar on the left, path and result stacked on the right.
+        if !root.compact: HorizontalLayout {
+            padding: 16px;
+            spacing: 16px;
             vertical-stretch: 1;
-            vertical-scrollbar-policy: ScrollBarPolicy.always-on;
-            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
-            HorizontalLayout {
-                padding: 16px;
-                spacing: 16px;
-                preferred-height: 700px;
-
-                Panel {
-                    width: 310px;
-
-                    VerticalLayout {
-                    padding: 16px;
-                    spacing: 14px;
-
-                    SectionTitle {
-                        text: "Source";
-                    }
-
-                    FieldLabel {
-                        text: root.source-input-label;
-                    }
-
-                    LineEdit {
-                        height: 40px;
-                        text <=> root.source-input-value;
-                    }
-
-                    HorizontalLayout {
-                        spacing: 8px;
-
-                        ComboBox {
-                            horizontal-stretch: 1;
-                            model: ["fixture", "sql", "postgres"];
-                            current-index <=> root.selected-source-index;
-                            selected(value) => {
-                                root.select-source(value, root.selected-source-kind, root.source-input-value);
-                                root.selected-source-kind = value;
-                            }
-                        }
-
-                        Button {
-                            text: "Load";
-                            clicked => {
-                                root.load-source(root.selected-source-kind, root.source-input-value);
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        height: 1px;
-                        background: #e5e7eb;
-                    }
-
-                    HorizontalLayout {
-                        spacing: 8px;
-
-                        SectionTitle {
-                            text: "Databases";
-                        }
-
-                        MutedText {
-                            text: "database";
-                        }
-                    }
-
-                    HorizontalLayout {
-                        height: 92px;
-                        spacing: 8px;
-
-                        ScrollView {
-                            horizontal-stretch: 1;
-                            vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
-                            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
-
-                            Text {
-                                text: root.databases-text;
-                                color: #111827;
-                                font-size: 13px;
-                                font-family: "monospace";
-                                wrap: word-wrap;
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        height: 1px;
-                        background: #e5e7eb;
-                    }
-
-                    HorizontalLayout {
-                        spacing: 8px;
-
-                        SectionTitle {
-                            text: "Tables";
-                        }
-
-                        MutedText {
-                            text: "schema.table";
-                        }
-                    }
-
-                    HorizontalLayout {
-                        height: 210px;
-                        spacing: 8px;
-
-                        ScrollView {
-                            horizontal-stretch: 1;
-                            vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
-                            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
-
-                            Text {
-                                text: root.tables-text;
-                                color: #111827;
-                                font-size: 13px;
-                                font-family: "monospace";
-                                wrap: word-wrap;
-                            }
-                        }
-                    }
+            SourcePanel {
+                horizontal-stretch: 0;
+                min-width: 280px;
+                preferred-width: 320px;
+                max-width: 380px;
+                source-input-label <=> root.source-input-label;
+                source-input-value <=> root.source-input-value;
+                selected-source-kind <=> root.selected-source-kind;
+                selected-source-index <=> root.selected-source-index;
+                databases-text <=> root.databases-text;
+                tables-text <=> root.tables-text;
+                select-source(next-kind, current-kind, current-value) => {
+                    root.select-source(next-kind, current-kind, current-value);
+                }
+                load-source(kind, value) => {
+                    root.load-source(kind, value);
                 }
             }
 
             VerticalLayout {
+                horizontal-stretch: 1;
                 spacing: 16px;
 
-                Panel {
-                    height: 210px;
-
-                    VerticalLayout {
-                        padding: 16px;
-                        spacing: 14px;
-
-                        SectionTitle {
-                            text: "Path";
-                        }
-
-                        GridLayout {
-                            spacing: 12px;
-
-                            FieldLabel {
-                                text: "Schema";
-                                row: 0;
-                                col: 0;
-                            }
-
-                            FieldLabel {
-                                text: "From table";
-                                row: 0;
-                                col: 1;
-                            }
-
-                            FieldLabel {
-                                text: "To table";
-                                row: 0;
-                                col: 2;
-                            }
-
-                            ComboBox {
-                                model: root.schema-options;
-                                current-index <=> root.selected-schema-index;
-                                row: 1;
-                                col: 0;
-                                selected(value) => {
-                                    root.selected-schema = value;
-                                    root.select-schema(value);
-                                }
-                            }
-
-                            ComboBox {
-                                model: root.table-options;
-                                current-index <=> root.source-table-index;
-                                row: 1;
-                                col: 1;
-                                selected(value) => {
-                                    root.source-table = value;
-                                }
-                            }
-
-                            ComboBox {
-                                model: root.table-options;
-                                current-index <=> root.target-table-index;
-                                row: 1;
-                                col: 2;
-                                selected(value) => {
-                                    root.target-table = value;
-                                }
-                            }
-                        }
-
-                        HorizontalLayout {
-                            spacing: 8px;
-                            alignment: center;
-
-                            FieldLabel {
-                                text: "Format";
-                            }
-
-                            ComboBox {
-                                width: 180px;
-                                model: ["equation", "sql", "text", "mermaid", "json"];
-                                current-index <=> root.selected-format-index;
-                                selected(value) => {
-                                    root.selected-format = value;
-                                }
-                            }
-
-                            Rectangle {
-                                horizontal-stretch: 1;
-                            }
-
-                            Button {
-                                text: "Find path";
-                                clicked => {
-                                    root.find-path(root.selected-schema, root.source-table, root.target-table, root.selected-format);
-                                }
-                            }
-                        }
+                PathPanel {
+                    vertical-stretch: 0;
+                    compact: false;
+                    schema-options: root.schema-options;
+                    table-options: root.table-options;
+                    selected-schema <=> root.selected-schema;
+                    selected-schema-index <=> root.selected-schema-index;
+                    source-table <=> root.source-table;
+                    source-table-index <=> root.source-table-index;
+                    target-table <=> root.target-table;
+                    target-table-index <=> root.target-table-index;
+                    selected-format <=> root.selected-format;
+                    selected-format-index <=> root.selected-format-index;
+                    select-schema(schema) => {
+                        root.select-schema(schema);
+                    }
+                    find-path(schema, from-table, to-table, format) => {
+                        root.find-path(schema, from-table, to-table, format);
                     }
                 }
 
-                Panel {
-                    VerticalLayout {
-                        padding: 16px;
-                        spacing: 12px;
-
-                        HorizontalLayout {
-                            spacing: 8px;
-
-                            SectionTitle {
-                                text: "Result";
-                            }
-
-                            MutedText {
-                                text: root.selected-format;
-                            }
-                        }
-
-                        TextEdit {
-                            text <=> root.output-text;
-                            font-size: 13px;
-                            font-family: "monospace";
-                            vertical-stretch: 1;
-                        }
-                    }
+                ResultPanel {
+                    vertical-stretch: 1;
+                    output-text <=> root.output-text;
+                    selected-format: root.selected-format;
                 }
             }
         }
+
+        // Narrow layout: one scrollable column so nothing gets clipped.
+        if root.compact: ScrollView {
+            vertical-stretch: 1;
+            vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+            viewport-width: self.visible-width;
+            viewport-height: Math.max(self.visible-height, 880px);
+
+            VerticalLayout {
+                padding: 16px;
+                spacing: 16px;
+
+                SourcePanel {
+                    vertical-stretch: 2;
+                    min-height: 300px;
+                    source-input-label <=> root.source-input-label;
+                    source-input-value <=> root.source-input-value;
+                    selected-source-kind <=> root.selected-source-kind;
+                    selected-source-index <=> root.selected-source-index;
+                    databases-text <=> root.databases-text;
+                    tables-text <=> root.tables-text;
+                    select-source(next-kind, current-kind, current-value) => {
+                        root.select-source(next-kind, current-kind, current-value);
+                    }
+                    load-source(kind, value) => {
+                        root.load-source(kind, value);
+                    }
+                }
+
+                PathPanel {
+                    vertical-stretch: 0;
+                    compact: true;
+                    schema-options: root.schema-options;
+                    table-options: root.table-options;
+                    selected-schema <=> root.selected-schema;
+                    selected-schema-index <=> root.selected-schema-index;
+                    source-table <=> root.source-table;
+                    source-table-index <=> root.source-table-index;
+                    target-table <=> root.target-table;
+                    target-table-index <=> root.target-table-index;
+                    selected-format <=> root.selected-format;
+                    selected-format-index <=> root.selected-format-index;
+                    select-schema(schema) => {
+                        root.select-schema(schema);
+                    }
+                    find-path(schema, from-table, to-table, format) => {
+                        root.find-path(schema, from-table, to-table, format);
+                    }
+                }
+
+                ResultPanel {
+                    vertical-stretch: 3;
+                    min-height: 220px;
+                    output-text <=> root.output-text;
+                    selected-format: root.selected-format;
+                }
+            }
         }
     }
 }
