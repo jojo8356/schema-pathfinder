@@ -31,7 +31,7 @@ schema-pathfinder tables --sql fixtures/postgres/dressshot_schema.sql
 schema-pathfinder --tables --database-url postgres://readonly:change-me@localhost:5432/postgres
 ```
 
-La sortie utilise le format `schema.table` pour éviter les ambiguïtés.
+La sortie utilise le format `schema.table` pour éviter les ambiguïtés. En mode PostgreSQL, les tables sont recherchées dans tous les schémas applicatifs visibles, et pas uniquement dans `public`.
 
 ## Lister les schémas
 

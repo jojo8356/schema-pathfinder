@@ -258,7 +258,11 @@ pub fn discover_postgres_schemas(database_url: &str) -> Result<Vec<String>, Path
 }
 
 pub fn discover_postgres_schema(database_url: &str) -> Result<SchemaMetadata, PathfinderError> {
-    discover_postgres_schema_for_schemas(database_url, &["public".to_string()])
+    // Do not assume that application tables live in `public`. PostgreSQL
+    // installations may use a dedicated schema (or several schemas), which
+    // is common for existing applications such as OpenConcerto.
+    let schemas = discover_postgres_schemas(database_url)?;
+    discover_postgres_schema_for_schemas(database_url, &schemas)
 }
 
 pub fn discover_postgres_schema_for_schemas(
