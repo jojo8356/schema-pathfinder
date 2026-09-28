@@ -48,3 +48,34 @@ describe("PostgreSQL server metadata commands", () => {
     assert.match(api, /source_schemas_response/);
   });
 });
+
+describe("multiple ranked paths by complexity", () => {
+  it("adds a --max-links option to the CLI", () => {
+    assert.match(cli, /Long\("max-links"\)/);
+    assert.match(cli, /max_links: usize/);
+    assert.match(cli, /--max-links <n>/);
+    assert.match(cli, /clamp_max_links/);
+  });
+
+  it("lists every path simplest-first through the Rust core", () => {
+    assert.match(core, /pub fn ranked_paths_by_complexity/);
+    assert.match(core, /pub fn render_paths/);
+    assert.match(core, /pub const DEFAULT_MAX_LINKS/);
+    assert.match(core, /pub fn clamp_max_links/);
+    // Complexity ordering: length ascending, then score descending.
+    assert.match(core, /left\.length\s*\n?\s*\.cmp\(&right\.length\)/);
+  });
+
+  it("uses complexity ranking in the CLI path command", () => {
+    assert.match(cli, /ranked_paths_by_complexity/);
+    assert.match(cli, /render_paths/);
+    assert.doesNotMatch(cli, /best_path/);
+  });
+
+  it("accepts a maxLinks parameter on the API path route", () => {
+    assert.match(api, /ranked_paths_by_complexity/);
+    assert.match(api, /render_paths/);
+    assert.match(api, /rename = "maxLinks"/);
+    assert.match(api, /DEFAULT_MAX_LINKS/);
+  });
+});

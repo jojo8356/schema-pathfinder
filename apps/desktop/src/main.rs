@@ -1,7 +1,7 @@
 use schema_pathfinder::pathfinder_core::{
-    best_path, discover_postgres_databases, discover_postgres_schema, load_schema_from_fixture,
-    load_schema_from_sql_file, parse_format, render_names, render_path, render_tables,
-    ForeignKeyEdge, SchemaMetadata, TableIdentifier,
+    clamp_max_links, discover_postgres_databases, discover_postgres_schema, load_schema_from_fixture,
+    load_schema_from_sql_file, parse_format, ranked_paths_by_complexity, render_names, render_paths,
+    render_tables, ForeignKeyEdge, SchemaMetadata, TableIdentifier, DEFAULT_MAX_LINKS,
 };
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use std::cell::RefCell;
@@ -24,6 +24,7 @@ fn main() -> Result<(), slint::PlatformError> {
     window.set_databases_text("NO_DATABASES".into());
     window.set_selected_source_kind("fixture".into());
     window.set_selected_source_index(0);
+    window.set_max_links(DEFAULT_MAX_LINKS as i32);
     window.set_source_input_label(source_input_label("fixture").into());
     window.set_source_input_value(DEFAULT_FIXTURE.into());
     load_initial_edges(&window, &state);
@@ -177,7 +178,7 @@ fn bind_find_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
     let weak_window = window.as_weak();
     let callback_state = Rc::clone(state);
 
-    window.on_find_path(move |schema, source, target, format| {
+    window.on_find_path(move |schema, source, target, format, max_links| {
         if let Some(window) = weak_window.upgrade() {
             render_selected_path(
                 &window,
@@ -186,6 +187,7 @@ fn bind_find_path(window: &AppWindow, state: &Rc<RefCell<DesktopState>>) {
                 source.as_str(),
                 target.as_str(),
                 format.as_str(),
+                max_links,
             );
         }
     });
@@ -300,6 +302,7 @@ fn render_selected_path(
     source_table: &str,
     target_table: &str,
     format_name: &str,
+    max_links: i32,
 ) {
     let current = state.borrow();
 
@@ -316,18 +319,21 @@ fn render_selected_path(
         }
     };
 
+    let requested_links = if max_links < 1 { 1 } else { max_links as usize };
+    let max_links = clamp_max_links(requested_links);
     let source_name = qualified_table_name(schema_name, source_table);
     let target_name = qualified_table_name(schema_name, target_table);
 
-    let path = match best_path(&current.edges, &source_name, &target_name) {
-        Ok(value) => value,
-        Err(error) => {
-            window.set_output_text(format!("{}: {}", error.code, error.message).into());
-            return;
-        }
-    };
+    let paths =
+        match ranked_paths_by_complexity(&current.edges, &source_name, &target_name, max_links) {
+            Ok(value) => value,
+            Err(error) => {
+                window.set_output_text(format!("{}: {}", error.code, error.message).into());
+                return;
+            }
+        };
 
-    match render_path(&path, format) {
+    match render_paths(&paths, format) {
         Ok(rendered) => {
             window.set_output_text(rendered.into());
         }

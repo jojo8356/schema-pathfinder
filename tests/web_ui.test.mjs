@@ -32,4 +32,17 @@ describe("web UI", () => {
     assert.doesNotMatch(webCss, /\.tables-list \{[^}]*display: flex/);
     assert.doesNotMatch(webCss, /\.tables-list \{[^}]*justify-content: center/);
   });
+
+  it("bounds the workspace height so the tables list scrolls instead of the page", () => {
+    assert.match(webCss, /\.workspace \{[^}]*height: calc\(100vh - 56px\)/);
+    assert.match(webCss, /\.source-panel \{[^}]*min-height: 0/);
+  });
+
+  it("lets the user choose how many links the paths may use", () => {
+    assert.match(webApp, /Max links/);
+    assert.match(webApp, /const DEFAULT_MAX_LINKS = 5/);
+    assert.match(webApp, /function clampMaxLinks/);
+    assert.match(webApp, /maxLinks: clampMaxLinks\(maxLinks\)/);
+    assert.match(webApp, /type="number"/);
+  });
 });

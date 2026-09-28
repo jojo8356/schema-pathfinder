@@ -11,14 +11,24 @@ export {
   mapPostgresForeignKeyRow,
   postgresForeignKeyMetadataSql
 } from "./postgres_fk_metadata.mjs";
-export { findPaths } from "./path_search.mjs";
+export { findPaths, findPathsByComplexity } from "./path_search.mjs";
 export { formatList, outputFormatSchema, outputFormats, parseOutputFormat } from "./output_formats.mjs";
 export {
   renderEquation,
   renderJson,
   renderMermaid,
   renderPath,
+  renderPaths,
   renderSql,
   renderText
 } from "./renderers.mjs";
-export { rankPaths, scorePath, scoringRules } from "./scoring.mjs";
+export {
+  clampMaxLinks,
+  defaultMaxLinks,
+  maxLinksCeiling,
+  maxRankedPaths,
+  rankPaths,
+  rankPathsByComplexity,
+  scorePath,
+  scoringRules
+} from "./scoring.mjs";

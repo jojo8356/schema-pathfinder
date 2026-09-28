@@ -8,6 +8,19 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 
 pub const SUPPORTED_FORMATS: [&str; 5] = ["text", "equation", "json", "sql", "mermaid"];
+
+/// Default maximum number of foreign-key links (edges) a listed path may use.
+/// Beyond five hops the required data entry usually becomes impractical, so the
+/// UIs default to this value while still letting the user raise or lower it.
+pub const DEFAULT_MAX_LINKS: usize = 5;
+
+/// Hard ceiling on how many links a path may ever use, regardless of user input.
+/// It keeps path enumeration bounded on very densely linked schemas.
+pub const MAX_LINKS_CEILING: usize = 8;
+
+/// Safety cap on the total number of ranked paths returned to a caller so a
+/// pathological schema cannot flood the UI or terminal.
+pub const MAX_RANKED_PATHS: usize = 50;
 const POSTGRES_TABLE_SQL: &str = r#"
 select
   table_ns.nspname as schema_name,
@@ -556,7 +569,7 @@ pub fn render_tables(tables: &[TableIdentifier]) -> String {
 
 pub fn render_path(path: &ScoredPath, format: OutputFormat) -> Result<String, PathfinderError> {
     match format {
-        OutputFormat::Text => Ok(render_text(path)),
+        OutputFormat::Text => Ok(render_text(path, 0)),
         OutputFormat::Equation => Ok(render_equation(path)),
         OutputFormat::Json => serde_json::to_string_pretty(path)
             .map_err(|error| pathfinder_error("JSON_RENDER_FAILED", error)),
@@ -565,7 +578,61 @@ pub fn render_path(path: &ScoredPath, format: OutputFormat) -> Result<String, Pa
     }
 }
 
-fn find_paths(
+/// Render several ranked paths as a single block, in the order they are given
+/// (shortest/simplest first). Every path is numbered and, for the non-`text`
+/// formats, prefixed with a short header so the reader can tell them apart.
+pub fn render_paths(paths: &[ScoredPath], format: OutputFormat) -> Result<String, PathfinderError> {
+    if paths.is_empty() {
+        return Ok(String::new());
+    }
+
+    if let OutputFormat::Json = format {
+        return serde_json::to_string_pretty(&paths)
+            .map_err(|error| pathfinder_error("JSON_RENDER_FAILED", error));
+    }
+
+    let mut blocks = Vec::with_capacity(paths.len());
+
+    for (index, path) in paths.iter().enumerate() {
+        match format {
+            OutputFormat::Text => blocks.push(render_text(path, index)),
+            OutputFormat::Equation => blocks.push(format!(
+                "{}\n{}",
+                path_header(path, index),
+                render_equation(path)
+            )),
+            OutputFormat::Sql => {
+                blocks.push(format!("{}\n{}", path_header(path, index), render_sql(path)))
+            }
+            OutputFormat::Mermaid => blocks.push(format!(
+                "{}\n{}",
+                path_header(path, index),
+                render_mermaid(path)
+            )),
+            OutputFormat::Json => unreachable!("json handled above"),
+        }
+    }
+
+    Ok(blocks.join("\n\n"))
+}
+
+fn path_header(path: &ScoredPath, index: usize) -> String {
+    let mut table_path = vec![path.source.table.clone()];
+
+    for edge in &path.edges {
+        table_path.push(edge.to.table.clone());
+    }
+
+    format!(
+        "Path {} score {} length {}: {}",
+        index + 1,
+        path.score,
+        path.length,
+        table_path.join(" -> ")
+    )
+}
+
+fn collect_paths(
     edges: &[ForeignKeyEdge],
     source: &TableIdentifier,
     target: &TableIdentifier,
@@ -606,6 +673,27 @@ fn find_paths(
         }
     }
 
+    results
+}
+
+/// Compare two edge lists by their constraint names so paths of equal length and
+/// score keep a stable, predictable order across runs.
+fn edge_constraint_signature(path: &ScoredPath) -> String {
+    path.edges
+        .iter()
+        .map(|edge| edge.constraint_name.clone())
+        .collect::<Vec<String>>()
+        .join("|")
+}
+
+fn find_paths(
+    edges: &[ForeignKeyEdge],
+    source: &TableIdentifier,
+    target: &TableIdentifier,
+    max_depth: usize,
+) -> Vec<ScoredPath> {
+    let mut results = collect_paths(edges, source, target, max_depth);
+
     results.sort_by(|left, right| {
         right
             .score
@@ -614,6 +702,52 @@ fn find_paths(
     });
     results.truncate(3);
     results
+}
+
+/// Return every declared foreign-key path between two tables, ordered by
+/// increasing complexity: shortest paths (fewest links) first, and, within the
+/// same length, the higher-scoring path first. This is what the UIs use to show
+/// several join options so the user can pick one that avoids tables that are not
+/// yet populated at the moment of data entry.
+pub fn ranked_paths_by_complexity(
+    edges: &[ForeignKeyEdge],
+    source_table: &str,
+    target_table: &str,
+    max_links: usize,
+) -> Result<Vec<ScoredPath>, PathfinderError> {
+    let tables = list_tables_from_edges(edges);
+    let source = resolve_table(&tables, source_table).ok_or_else(|| PathfinderError {
+        code: "TABLE_NOT_FOUND",
+        message: format!("Source table not found: {}", source_table),
+    })?;
+    let target = resolve_table(&tables, target_table).ok_or_else(|| PathfinderError {
+        code: "TABLE_NOT_FOUND",
+        message: format!("Target table not found: {}", target_table),
+    })?;
+
+    let depth = clamp_max_links(max_links);
+    let mut results = collect_paths(edges, &source, &target, depth);
+
+    if results.is_empty() {
+        return Err(PathfinderError {
+            code: "NO_DECLARED_FK_PATH",
+            message: "No declared foreign-key path found".to_string(),
+        });
+    }
+
+    results.sort_by(|left, right| {
+        left.length
+            .cmp(&right.length)
+            .then_with(|| right.score.cmp(&left.score))
+            .then_with(|| edge_constraint_signature(left).cmp(&edge_constraint_signature(right)))
+    });
+    results.truncate(MAX_RANKED_PATHS);
+    Ok(results)
+}
+
+/// Normalise a requested maximum link count into the supported range.
+pub fn clamp_max_links(max_links: usize) -> usize {
+    max_links.clamp(1, MAX_LINKS_CEILING)
 }
 
 fn build_adjacency(edges: &[ForeignKeyEdge]) -> BTreeMap<String, Vec<ForeignKeyEdge>> {
@@ -716,7 +850,7 @@ fn table_key(table: &TableIdentifier) -> String {
     format!("{}.{}", table.schema, table.table)
 }
 
-fn render_text(path: &ScoredPath) -> String {
+fn render_text(path: &ScoredPath, index: usize) -> String {
     let mut table_path = vec![path.source.table.clone()];
 
     for edge in &path.edges {
@@ -725,7 +859,8 @@ fn render_text(path: &ScoredPath) -> String {
 
     let mut lines = vec![
         format!(
-            "Path 1 score {} {} length {}",
+            "Path {} score {} {} length {}",
+            index + 1,
             path.score,
             path.evidence.join(","),
             path.length

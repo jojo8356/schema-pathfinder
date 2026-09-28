@@ -44,7 +44,14 @@ Le layout est responsive :
 3. Sélectionner le schéma.
 4. Choisir la table de départ et la table cible.
 5. Choisir le format de sortie.
-6. Lancer la recherche de chemin.
+6. Régler « Max links » : nombre maximal de liens par chemin (5 par défaut, de 1 à 8).
+7. Lancer la recherche de chemin.
+
+La recherche affiche **tous** les chemins trouvés, du plus simple au plus complexe :
+les chemins à 1 lien d'abord, puis ceux à 2 liens, etc., chacun numéroté
+(`Path 1`, `Path 2`, ...). Cela permet de choisir un chemin qui évite une table
+non encore renseignée au moment de la saisie. Le curseur « Max links » limite la
+longueur maximale des chemins listés.
 
 ## Limites actuelles
 

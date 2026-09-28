@@ -95,3 +95,47 @@ export function rankPaths(paths) {
     })
     .slice(0, 3);
 }
+
+export const defaultMaxLinks = 5;
+export const maxLinksCeiling = 8;
+export const maxRankedPaths = 50;
+
+export function clampMaxLinks(maxLinks) {
+  if (Number.isFinite(maxLinks) === false) {
+    return defaultMaxLinks;
+  }
+
+  const rounded = Math.trunc(maxLinks);
+
+  if (rounded < 1) {
+    return 1;
+  }
+
+  if (rounded > maxLinksCeiling) {
+    return maxLinksCeiling;
+  }
+
+  return rounded;
+}
+
+// Order paths by increasing complexity: fewest links first, then the
+// higher-scoring path within the same length, then a stable tie-break on the
+// constraint names. This lets the UI list several join options so the user can
+// pick one that avoids tables which are not yet populated during data entry.
+export function rankPathsByComplexity(paths) {
+  return [...paths]
+    .sort((left, right) => {
+      if (left.length !== right.length) {
+        return left.length - right.length;
+      }
+
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+
+      return left.edges.map((edge) => edge.constraintName).join("|").localeCompare(
+        right.edges.map((edge) => edge.constraintName).join("|")
+      );
+    })
+    .slice(0, maxRankedPaths);
+}

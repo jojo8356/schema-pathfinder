@@ -1,7 +1,8 @@
 use schema_pathfinder::pathfinder_core::{
-    best_path, discover_postgres_databases, discover_postgres_schema, discover_postgres_schemas,
+    discover_postgres_databases, discover_postgres_schema, discover_postgres_schemas,
     load_schema_from_env_or_fixture, load_schema_from_fixture, load_schema_from_sql, parse_format,
-    pathfinder_error, render_path, PathfinderError, SchemaMetadata,
+    pathfinder_error, ranked_paths_by_complexity, render_paths, PathfinderError, SchemaMetadata,
+    DEFAULT_MAX_LINKS,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -37,6 +38,8 @@ struct PathRequest {
     source_kind: String,
     #[serde(rename = "sourceValue")]
     source_value: String,
+    #[serde(rename = "maxLinks")]
+    max_links: Option<usize>,
 }
 
 fn main() {
@@ -250,13 +253,16 @@ fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io:
         }
     };
 
-    match best_path(
+    let max_links = path_request.max_links.unwrap_or(DEFAULT_MAX_LINKS);
+
+    match ranked_paths_by_complexity(
         &schema.edges,
         &path_request.source_table,
         &path_request.target_table,
+        max_links,
     ) {
-        Ok(path) => {
-            let rendered = match render_path(&path, format) {
+        Ok(paths) => {
+            let rendered = match render_paths(&paths, format) {
                 Ok(value) => value,
                 Err(error) => {
                     return json_response(StatusCode(500), error_json(error.code, &error.message));
@@ -266,7 +272,7 @@ fn path_response(request: &mut Request, config: &ApiConfig) -> Response<std::io:
             json_response(
                 StatusCode(200),
                 json!({
-                    "paths": [path],
+                    "paths": paths,
                     "rendered": rendered
                 }),
             )

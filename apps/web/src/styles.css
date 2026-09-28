@@ -18,10 +18,10 @@ button, input, select { font: inherit; }
   border-bottom: 1px solid #e5e7eb;
 }
 .topbar h1 { margin: 0; font-size: 18px; font-weight: 800; color: #0f172a; }
-.workspace { display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 16px; padding: 16px; min-height: calc(100vh - 56px); }
+.workspace { display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 16px; padding: 16px; height: calc(100vh - 56px); }
 .panel { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
 .panel h2 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 700; color: #111827; }
-.source-panel { display: flex; flex-direction: column; gap: 14px; min-height: 632px; }
+.source-panel { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow: hidden; }
 .field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .field span { color: #374151; font-size: 12px; font-weight: 600; }
 input, select {
@@ -40,14 +40,18 @@ button:hover { background: #f8fafc; }
 .path-panel { display: flex; flex-direction: column; gap: 14px; }
 .path-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .format-row { display: flex; align-items: end; gap: 16px; }
+.maxlinks-field { width: 120px; }
 .inline-field { width: 260px; margin-left: auto; }
 .result-panel { flex: 1; min-height: 390px; display: flex; flex-direction: column; gap: 12px; }
 .result-box { flex: 1; margin: 0; border: 1px solid #e5e7eb; border-radius: 4px; padding: 12px; white-space: pre-wrap; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; }
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 860px) {
-  .workspace { grid-template-columns: 1fr; }
+  .workspace { grid-template-columns: 1fr; height: auto; min-height: calc(100vh - 56px); }
+  .source-panel { overflow: visible; }
+  .tables-list { max-height: 320px; }
   .path-grid { grid-template-columns: 1fr; }
   .format-row { align-items: stretch; flex-direction: column; }
+  .maxlinks-field { width: 100%; }
   .inline-field { width: 100%; margin-left: 0; }
 }

@@ -1,11 +1,28 @@
 import { createSchemaGraph, outgoingEdges, resolveTable, tableKey } from "./graph.mjs";
-import { rankPaths, scorePath } from "./scoring.mjs";
+import { clampMaxLinks, rankPaths, rankPathsByComplexity, scorePath } from "./scoring.mjs";
 
 export function findPaths(input) {
+  return searchPaths(input, 6, rankPaths);
+}
+
+// Same traversal as `findPaths`, but the results are ordered by increasing
+// complexity (fewest links first) and the depth defaults to the shared
+// `defaultMaxLinks` value so the UIs and CLI stay aligned.
+export function findPathsByComplexity(input) {
+  let maxLinks = clampMaxLinks(5);
+
+  if (input.maxLinks !== undefined) {
+    maxLinks = clampMaxLinks(input.maxLinks);
+  }
+
+  return searchPaths({ ...input, maxDepth: maxLinks }, maxLinks, rankPathsByComplexity);
+}
+
+function searchPaths(input, defaultMaxDepth, rank) {
   const graph = createSchemaGraph(input.edges);
   const source = resolveTable(graph, input.sourceTable, input.sourceSchema);
   const target = resolveTable(graph, input.targetTable, input.targetSchema);
-  let maxDepth = 6;
+  let maxDepth = defaultMaxDepth;
 
   if (input.maxDepth !== undefined) {
     maxDepth = input.maxDepth;
@@ -88,6 +105,6 @@ export function findPaths(input) {
   return {
     source,
     target,
-    paths: rankPaths(results)
+    paths: rank(results)
   };
 }
