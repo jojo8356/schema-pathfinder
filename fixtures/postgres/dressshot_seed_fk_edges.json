@@ -1,0 +1,28 @@
+{
+  "edges": [
+    {
+      "constraintName": "ClothingItem_clothingSessionId_fkey",
+      "from": { "schema": "public", "table": "ClothingItem" },
+      "fromColumn": "clothingSessionId",
+      "to": { "schema": "public", "table": "ClothingSession" },
+      "toColumn": "id",
+      "evidence": ["declared_fk"]
+    },
+    {
+      "constraintName": "ClothingSession_sellerProfileId_fkey",
+      "from": { "schema": "public", "table": "ClothingSession" },
+      "fromColumn": "sellerProfileId",
+      "to": { "schema": "public", "table": "SellerProfile" },
+      "toColumn": "id",
+      "evidence": ["declared_fk"]
+    },
+    {
+      "constraintName": "SellerProfile_userId_fkey",
+      "from": { "schema": "public", "table": "SellerProfile" },
+      "fromColumn": "userId",
+      "to": { "schema": "public", "table": "User" },
+      "toColumn": "id",
+      "evidence": ["declared_fk"]
+    }
+  ]
+}

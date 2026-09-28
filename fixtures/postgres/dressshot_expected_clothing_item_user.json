@@ -1,0 +1,23 @@
+{
+  "source": { "schema": "public", "table": "ClothingItem" },
+  "target": { "schema": "public", "table": "User" },
+  "paths": [
+    {
+      "score": 156,
+      "length": 3,
+      "evidence": ["declared_fk"],
+      "tables": ["ClothingItem", "ClothingSession", "SellerProfile", "User"],
+      "edges": [
+        "ClothingItem.clothingSessionId = ClothingSession.id",
+        "ClothingSession.sellerProfileId = SellerProfile.id",
+        "SellerProfile.userId = User.id"
+      ],
+      "renderers": {
+        "text": "Path 1 score 156 declared_fk length 3\nClothingItem -> ClothingSession -> SellerProfile -> User\n\nEdges:\n1. ClothingItem.clothingSessionId -> ClothingSession.id\n2. ClothingSession.sellerProfileId -> SellerProfile.id\n3. SellerProfile.userId -> User.id",
+        "equation": "ClothingItem.clothingSessionId = ClothingSession.id -> ClothingSession.sellerProfileId = SellerProfile.id -> SellerProfile.userId = User.id",
+        "sql": "select *\nfrom \"ClothingItem\" t0\njoin \"ClothingSession\" t1 on t0.\"clothingSessionId\" = t1.\"id\"\njoin \"SellerProfile\" t2 on t1.\"sellerProfileId\" = t2.\"id\"\njoin \"User\" t3 on t2.\"userId\" = t3.\"id\"\nlimit 50;",
+        "mermaid": "flowchart LR\n  ClothingItem --> ClothingSession\n  ClothingSession --> SellerProfile\n  SellerProfile --> User"
+      }
+    }
+  ]
+}

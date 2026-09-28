@@ -1,0 +1,6 @@
+{
+  "source": { "schema": "public", "table": "ClothingItem" },
+  "target": { "schema": "public", "table": "UnrelatedTable" },
+  "paths": [],
+  "noPathReason": "NO_DECLARED_FK_PATH"
+}

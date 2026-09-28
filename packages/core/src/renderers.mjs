@@ -1,0 +1,141 @@
+import { formatList, parseOutputFormat } from "./output_formats.mjs";
+
+const rendererRegistry = {
+  text: renderText,
+  equation: renderEquation,
+  json: renderPathJson,
+  sql: renderSql,
+  mermaid: renderMermaid
+};
+
+export function renderText(path, index = 0) {
+  const tablePath = [path.source.table];
+
+  for (const edge of path.edges) {
+    tablePath.push(edge.to.table);
+  }
+
+  const lines = [
+    `Path ${index + 1} score ${path.score} ${path.evidence.join(",")} length ${path.length}`,
+    tablePath.join(" -> "),
+    "",
+    "Edges:"
+  ];
+
+  path.edges.forEach((edge, edgeIndex) => {
+    lines.push(
+      `${edgeIndex + 1}. ${edge.from.table}.${edge.fromColumn} -> ${edge.to.table}.${edge.toColumn}`
+    );
+  });
+
+  return lines.join("\n");
+}
+
+export function renderEquation(path) {
+  return path.edges
+    .map((edge) => `${edge.from.table}.${edge.fromColumn} = ${edge.to.table}.${edge.toColumn}`)
+    .join("\n-> ");
+}
+
+export function renderJson(result) {
+  return JSON.stringify(result, null, 2);
+}
+
+export function renderSql(path, limit = 50) {
+  if (path.edges.length === 0) {
+    return "";
+  }
+
+  const lines = [
+    "select *",
+    `from ${quoteIdentifier(path.source.table)} t0`
+  ];
+
+  path.edges.forEach((edge, edgeIndex) => {
+    const fromAlias = `t${edgeIndex}`;
+    const toAlias = `t${edgeIndex + 1}`;
+
+    lines.push(
+      `join ${quoteIdentifier(edge.to.table)} ${toAlias} on ${fromAlias}.${quoteIdentifier(edge.fromColumn)} = ${toAlias}.${quoteIdentifier(edge.toColumn)}`
+    );
+  });
+
+  lines.push(`limit ${limit};`);
+
+  return lines.join("\n");
+}
+
+export function renderMermaid(path) {
+  const lines = ["flowchart LR"];
+
+  for (const edge of path.edges) {
+    lines.push(`  ${edge.from.table} --> ${edge.to.table}`);
+  }
+
+  return lines.join("\n");
+}
+
+export function renderPath(path, format) {
+  const parsed = parseOutputFormat(format);
+
+  if (parsed.success === false) {
+    throw new Error(`Unsupported output format: ${format}. Supported formats: ${formatList()}`);
+  }
+
+  return rendererRegistry[parsed.data](path);
+}
+
+function pathHeader(path, index) {
+  const tablePath = [path.source.table];
+
+  for (const edge of path.edges) {
+    tablePath.push(edge.to.table);
+  }
+
+  return `Path ${index + 1} score ${path.score} length ${path.length}: ${tablePath.join(" -> ")}`;
+}
+
+// Render several ranked paths as one block, simplest first. Each path is
+// numbered; for the non-text formats a short header is added so the reader can
+// tell the paths apart.
+export function renderPaths(paths, format) {
+  const parsed = parseOutputFormat(format);
+
+  if (parsed.success === false) {
+    throw new Error(`Unsupported output format: ${format}. Supported formats: ${formatList()}`);
+  }
+
+  if (paths.length === 0) {
+    return "";
+  }
+
+  if (parsed.data === "json") {
+    return JSON.stringify(paths, null, 2);
+  }
+
+  const blocks = paths.map((path, index) => {
+    if (parsed.data === "text") {
+      return renderText(path, index);
+    }
+
+    return `${pathHeader(path, index)}\n${rendererRegistry[parsed.data](path)}`;
+  });
+
+  return blocks.join("\n\n");
+}
+
+function quoteIdentifier(identifier) {
+  return `"${identifier.replaceAll("\"", "\"\"")}"`;
+}
+
+function renderPathJson(path) {
+  return JSON.stringify(path, null, 2);
+}
+
+export function renderTables(tables) {
+  if (tables.length === 0) {
+    return "NO_TABLES";
+  }
+
+  return tables.map((table) => `${table.schema}.${table.table}`).join("\n");
+}

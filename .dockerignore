@@ -1,0 +1,8 @@
+target
+dist
+node_modules
+.git
+apps/web/dist
+.env
+.env.*
+!.env.example
