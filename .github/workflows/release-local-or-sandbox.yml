@@ -1,0 +1,222 @@
+# Build the packages on your own machine when it is available, otherwise on the
+# GitHub-hosted sandbox, then publish everything to a GitHub release.
+#
+# HOW THE RUNNER IS CHOSEN
+#   - `runner_preference: auto`        -> use your self-hosted runner if it is
+#                                         online, otherwise fall back to the
+#                                         GitHub-hosted `ubuntu-22.04` sandbox.
+#   - `runner_preference: self-hosted` -> force your local machine.
+#   - `runner_preference: github`      -> force the GitHub-hosted sandbox.
+#
+# There is no native "measure which machine is faster" in GitHub Actions: this
+# workflow assumes that when your self-hosted runner is online it is the one you
+# want (usually the more powerful machine).
+#
+# ONE-TIME SETUP (done by the repository owner, on the local PC):
+#   Repo -> Settings -> Actions -> Runners -> "New self-hosted runner"
+#   Follow the shown commands, then leave `./run.sh` (or run it as a service).
+#   The machine must be Linux x86_64 with the same build tools the `github`
+#   job installs below (Rust, Node 22, dpkg-dev, fakeroot, appimagetool deps).
+#
+# SECURITY: this repository is public. Self-hosted runners on public repos are
+# risky, so this workflow NEVER runs on `pull_request` (only manual dispatch and
+# version tags), which prevents forked PRs from executing on your machine.
+
+name: Release (local runner or sandbox)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to publish to (e.g. v0.1.3). Empty = keep workflow artifact only."
+        required: false
+        default: ""
+      runner_preference:
+        description: "Where to build"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - self-hosted
+          - github
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  APPIMAGE_EXTRACT_AND_RUN: 1
+  APPIMAGE_RUNTIME_FILE: /tmp/runtime-x86_64
+
+jobs:
+  pick-runner:
+    name: Choose runner (local if online, else sandbox)
+    runs-on: ubuntu-latest
+    outputs:
+      runner: ${{ steps.pick.outputs.runner }}
+    steps:
+      - name: Decide which runner to use
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREFERENCE: ${{ github.event.inputs.runner_preference || 'auto' }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          case "$PREFERENCE" in
+            self-hosted)
+              echo "Forcing self-hosted runner."
+              echo "runner=self-hosted" >> "$GITHUB_OUTPUT"
+              ;;
+            github)
+              echo "Forcing GitHub-hosted sandbox."
+              echo "runner=ubuntu-22.04" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              # auto: use the local machine only if a self-hosted runner is online.
+              online="$(gh api "repos/$REPO/actions/runners" \
+                --jq '[.runners[] | select(.status=="online" and (.busy|not))] | length' \
+                2>/dev/null || echo 0)"
+              echo "Online idle self-hosted runners detected: ${online:-0}"
+              if [ "${online:-0}" -gt 0 ]; then
+                echo "Local machine is available -> building locally."
+                echo "runner=self-hosted" >> "$GITHUB_OUTPUT"
+              else
+                echo "No local runner available -> building on the sandbox."
+                echo "runner=ubuntu-22.04" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+          esac
+
+  build:
+    name: Build packages on ${{ needs.pick-runner.outputs.runner }}
+    needs: pick-runner
+    runs-on: ${{ needs.pick-runner.outputs.runner }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install desktop build dependencies (Debian/Ubuntu only)
+        run: |
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes \
+              dpkg-dev \
+              fakeroot \
+              desktop-file-utils \
+              zsync \
+              libfontconfig1-dev \
+              libx11-xcb-dev \
+              libxcb1-dev \
+              libxcb-render0-dev \
+              libxcb-shape0-dev \
+              libxcb-xfixes0-dev \
+              libxkbcommon-dev \
+              libxkbcommon-x11-dev \
+              libwayland-dev
+          else
+            echo "apt-get not found; assuming the self-hosted machine already has the build deps."
+          fi
+
+      - name: Install appimagetool
+        run: |
+          curl --fail --location --silent --show-error \
+            --output /tmp/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          curl --fail --location --silent --show-error \
+            --output "$APPIMAGE_RUNTIME_FILE" \
+            https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64
+          chmod +x /tmp/appimagetool "$APPIMAGE_RUNTIME_FILE"
+          sudo install -m 0755 /tmp/appimagetool /usr/local/bin/appimagetool
+          appimagetool --version
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Report build machine
+        run: |
+          echo "Runner label: ${{ needs.pick-runner.outputs.runner }}"
+          echo "CPU cores: $(nproc 2>/dev/null || echo '?')"
+          if command -v free >/dev/null 2>&1; then free -h; fi
+
+      - name: Check desktop UI contract
+        run: node --test tests/desktop_ui.test.mjs
+
+      - name: Build CLI
+        run: cargo build --locked --release -p schema-pathfinder --bin schema-pathfinder
+
+      - name: Build desktop GUI
+        run: cargo build --locked --release -p schema-pathfinder-desktop
+
+      - name: Build Debian packages
+        run: |
+          node scripts/build_deb.mjs
+          node scripts/build_desktop_deb.mjs
+
+      - name: Build AppImages
+        run: |
+          node scripts/build_appimage.mjs
+          node scripts/build_desktop_appimage.mjs
+
+      - name: Verify AppImages
+        run: |
+          chmod +x dist/*.AppImage
+          ./dist/schema-pathfinder-*-x86_64.AppImage --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
+          file dist/schema-pathfinder-desktop-*-x86_64.AppImage
+
+      - name: Collect release artifacts
+        run: |
+          mkdir -p artifacts
+          cp target/release/schema-pathfinder artifacts/schema-pathfinder-linux-x86_64
+          cp target/release/schema-pathfinder-desktop artifacts/schema-pathfinder-desktop-linux-x86_64
+          chmod +x artifacts/schema-pathfinder-linux-x86_64 artifacts/schema-pathfinder-desktop-linux-x86_64
+          tar -C artifacts -czf artifacts/schema-pathfinder-linux-x86_64.tar.gz \
+            schema-pathfinder-linux-x86_64 \
+            schema-pathfinder-desktop-linux-x86_64
+          cp dist/*.deb artifacts/
+          cp dist/*.AppImage artifacts/
+          sha256sum artifacts/* > artifacts/SHA256SUMS
+          ls -lh artifacts/
+
+      - name: Upload binaries and packages to workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema-pathfinder-linux-packages
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Resolve release tag
+        id: release
+        env:
+          INPUT_TAG: ${{ github.event.inputs.release_tag }}
+        run: |
+          if [ "${GITHUB_REF}" != "${GITHUB_REF#refs/tags/}" ]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish artifacts to the GitHub release
+        if: steps.release.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Schema Pathfinder $TAG" \
+              --generate-notes
+          fi
+          gh release upload "$TAG" artifacts/* --repo "$GITHUB_REPOSITORY" --clobber
