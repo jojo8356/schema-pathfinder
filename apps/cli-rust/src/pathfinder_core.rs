@@ -1,3 +1,17 @@
+//! Core engine for Schema Pathfinder.
+//!
+//! This module holds the metadata models ([`TableIdentifier`],
+//! [`ForeignKeyEdge`], [`SchemaMetadata`], …), the loaders that build them from
+//! a fixture, a SQL file or a live PostgreSQL connection, the foreign-key path
+//! search ([`best_path`], [`ranked_paths_by_complexity`]), the deterministic
+//! scoring, and the output renderers ([`render_path`], [`render_paths`],
+//! [`render_tables`], [`render_postgres_architecture_tree`]).
+//!
+//! The engine only ever reads schema metadata, never business rows.
+
+/// Parse PostgreSQL DDL text into a [`SchemaMetadata`].
+///
+/// Re-exported from the SQL parsing module so callers only need one import path.
 pub use crate::postgres_sql_metadata::load_schema_from_sql;
 use postgres::{Client, NoTls};
 use serde::{Deserialize, Serialize};
@@ -7,6 +21,8 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs;
 
+/// The output formats accepted by [`parse_format`] and produced by
+/// [`render_path`] / [`render_paths`], in their canonical spelling.
 pub const SUPPORTED_FORMATS: [&str; 5] = ["text", "equation", "json", "sql", "mermaid"];
 
 /// Default maximum number of foreign-key links (edges) a listed path may use.
@@ -74,70 +90,115 @@ where constraint_record.contype = 'f'
 order by source_ns.nspname, source_table.relname, constraint_record.conname, source_key.position
 "#;
 
+/// A fully qualified table reference (`schema.table`).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct TableIdentifier {
+    /// The schema the table lives in (e.g. `public`).
     pub schema: String,
+    /// The table name.
     pub table: String,
 }
 
+/// The tables and foreign-key edges discovered from a single source (fixture,
+/// SQL file or PostgreSQL connection).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaMetadata {
+    /// Every visible table.
     pub tables: Vec<TableIdentifier>,
+    /// Every declared foreign-key edge between those tables.
     pub edges: Vec<ForeignKeyEdge>,
 }
 
+/// The full architecture of a PostgreSQL server: its databases and, for each,
+/// the schemas, tables and outgoing foreign keys.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostgresArchitectureTree {
+    /// One entry per accessible database.
     pub databases: Vec<DatabaseArchitecture>,
 }
 
+/// One database inside a [`PostgresArchitectureTree`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseArchitecture {
+    /// The database name.
     pub name: String,
+    /// The schemas found in this database.
     pub schemas: Vec<SchemaArchitecture>,
+    /// A human-readable error if the database could not be introspected
+    /// (for example a failed connection), otherwise `None`.
     pub error: Option<String>,
 }
 
+/// One schema inside a [`DatabaseArchitecture`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaArchitecture {
+    /// The schema name.
     pub name: String,
+    /// The tables declared in this schema.
     pub tables: Vec<TableArchitecture>,
 }
 
+/// One table inside a [`SchemaArchitecture`], with its outgoing foreign keys.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableArchitecture {
+    /// The table name.
     pub name: String,
+    /// The foreign keys that originate from this table.
     pub outgoing: Vec<ForeignKeyEdge>,
 }
 
+/// A single declared foreign-key relationship, directed from `from` to `to`.
+///
+/// In JSON the columns use camelCase names (`constraintName`, `fromColumn`,
+/// `toColumn`) to match the fixture and API contracts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForeignKeyEdge {
+    /// The constraint name (or a generated fallback when the DDL omits it).
     #[serde(rename = "constraintName")]
     pub constraint_name: String,
+    /// The table the foreign key is declared on.
     pub from: TableIdentifier,
+    /// The referencing column on `from`.
     #[serde(rename = "fromColumn")]
     pub from_column: String,
+    /// The table the foreign key points to.
     pub to: TableIdentifier,
+    /// The referenced column on `to`.
     #[serde(rename = "toColumn")]
     pub to_column: String,
+    /// Provenance tags for this edge, e.g. `declared_fk`, `sql_ddl`.
     pub evidence: Vec<String>,
 }
 
+/// A scored join path between two tables, as returned by [`best_path`] and
+/// [`ranked_paths_by_complexity`].
 #[derive(Debug, Serialize)]
 pub struct ScoredPath {
+    /// The starting table.
     pub source: TableIdentifier,
+    /// The destination table.
     pub target: TableIdentifier,
+    /// The total score (higher is better); see [`ScoreContribution`].
     pub score: i32,
+    /// The number of foreign-key links (edges) in the path.
     pub length: usize,
+    /// The de-duplicated evidence tags collected from the path's edges.
     pub evidence: Vec<String>,
+    /// The ordered edges that make up the path, from `source` to `target`.
     pub edges: Vec<ForeignKeyEdge>,
+    /// The individual contributions that sum up to `score`, in JSON as
+    /// `scoreContributions`.
     #[serde(rename = "scoreContributions")]
     pub score_contributions: Vec<ScoreContribution>,
 }
 
+/// One line item of a [`ScoredPath`]'s score (a bonus or a penalty).
 #[derive(Debug, Serialize)]
 pub struct ScoreContribution {
+    /// What the contribution is, e.g. `declared_fk`, `extra_hop`,
+    /// `technical_table`, `auth_session_table`.
     pub label: String,
+    /// The signed points added to the path's score.
     pub value: i32,
 }
 
@@ -149,20 +210,41 @@ struct Fixture {
 }
 
 #[derive(Debug, Clone, Copy)]
+/// A rendering format for a path or list of paths.
+///
+/// Obtain a value with [`parse_format`] and get its canonical name back with
+/// [`format_name`].
 pub enum OutputFormat {
+    /// Human-readable summary with score, table order and edges.
     Text,
+    /// Join equations chained with `->`.
     Equation,
+    /// The full structured contract, as pretty JSON.
     Json,
+    /// A read-only `SELECT ... JOIN` query skeleton.
     Sql,
+    /// A Mermaid `flowchart` diagram.
     Mermaid,
 }
 
 #[derive(Debug)]
+/// An error returned by the engine.
+///
+/// `code` is a stable, machine-friendly identifier (e.g. `TABLE_NOT_FOUND`,
+/// `NO_DECLARED_FK_PATH`, `FIXTURE_JSON_INVALID`) that callers and the API can
+/// switch on; `message` is a human-readable explanation.
 pub struct PathfinderError {
+    /// Stable machine-readable error code.
     pub code: &'static str,
+    /// Human-readable description of what went wrong.
     pub message: String,
 }
 
+/// Parse a format name (one of [`SUPPORTED_FORMATS`]) into an [`OutputFormat`].
+///
+/// # Errors
+///
+/// Returns an `UNSUPPORTED_FORMAT` error if `value` is not a known format.
 pub fn parse_format(value: &str) -> Result<OutputFormat, PathfinderError> {
     match value {
         "text" => Ok(OutputFormat::Text),
@@ -181,6 +263,8 @@ pub fn parse_format(value: &str) -> Result<OutputFormat, PathfinderError> {
     }
 }
 
+/// Return the canonical name of an [`OutputFormat`] (the inverse of
+/// [`parse_format`]).
 pub fn format_name(format: OutputFormat) -> &'static str {
     match format {
         OutputFormat::Text => "text",
@@ -191,6 +275,14 @@ pub fn format_name(format: OutputFormat) -> &'static str {
     }
 }
 
+/// Load [`SchemaMetadata`] from a fixture JSON file.
+///
+/// If the fixture omits the `tables` array it is derived from the edges.
+///
+/// # Errors
+///
+/// `FIXTURE_READ_FAILED` if the file cannot be read, `FIXTURE_JSON_INVALID` if
+/// its contents are not valid fixture JSON.
 pub fn load_schema_from_fixture(path: &str) -> Result<SchemaMetadata, PathfinderError> {
     let content =
         fs::read_to_string(path).map_err(|error| pathfinder_error("FIXTURE_READ_FAILED", error))?;
@@ -208,20 +300,40 @@ pub fn load_schema_from_fixture(path: &str) -> Result<SchemaMetadata, Pathfinder
     })
 }
 
+/// Load only the foreign-key edges from a fixture JSON file.
+///
+/// A convenience wrapper over [`load_schema_from_fixture`]; see it for errors.
 pub fn load_edges_from_fixture(path: &str) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
     Ok(load_schema_from_fixture(path)?.edges)
 }
 
+/// Load [`SchemaMetadata`] by reading and parsing a PostgreSQL DDL `.sql` file.
+///
+/// # Errors
+///
+/// `SQL_READ_FAILED` if the file cannot be read, `SQL_PARSE_FAILED` if the DDL
+/// cannot be parsed.
 pub fn load_schema_from_sql_file(path: &str) -> Result<SchemaMetadata, PathfinderError> {
     let content =
         fs::read_to_string(path).map_err(|error| pathfinder_error("SQL_READ_FAILED", error))?;
     load_schema_from_sql(&content)
 }
 
+/// Load only the foreign-key edges from a PostgreSQL DDL `.sql` file.
+///
+/// A convenience wrapper over [`load_schema_from_sql_file`]; see it for errors.
 pub fn load_edges_from_sql_file(path: &str) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
     Ok(load_schema_from_sql_file(path)?.edges)
 }
 
+/// Load [`SchemaMetadata`] from a fixture path when given, otherwise from the
+/// PostgreSQL connection in the `DATABASE_URL` environment variable.
+///
+/// # Errors
+///
+/// Fixture errors (see [`load_schema_from_fixture`]) when `fixture` is set;
+/// `DB_CONFIG_MISSING` if neither a fixture nor `DATABASE_URL` is available, or
+/// connection/metadata errors otherwise.
 pub fn load_schema_from_env_or_fixture(
     fixture: Option<&str>,
 ) -> Result<SchemaMetadata, PathfinderError> {
@@ -234,12 +346,21 @@ pub fn load_schema_from_env_or_fixture(
     discover_postgres_schema(&database_url)
 }
 
+/// Load only the foreign-key edges from a fixture or `DATABASE_URL`.
+///
+/// A convenience wrapper over [`load_schema_from_env_or_fixture`].
 pub fn load_edges_from_env_or_fixture(
     fixture: Option<&str>,
 ) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
     Ok(load_schema_from_env_or_fixture(fixture)?.edges)
 }
 
+/// List the names of the databases reachable from a PostgreSQL connection URL
+/// (excluding templates and databases that disallow connections).
+///
+/// # Errors
+///
+/// `DB_CONNECT_FAILED` or `DB_METADATA_FAILED` on connection/query failure.
 pub fn discover_postgres_databases(database_url: &str) -> Result<Vec<String>, PathfinderError> {
     let mut client = Client::connect(database_url, NoTls)
         .map_err(|error| pathfinder_error("DB_CONNECT_FAILED", error))?;
@@ -255,6 +376,12 @@ pub fn discover_postgres_databases(database_url: &str) -> Result<Vec<String>, Pa
     Ok(databases)
 }
 
+/// List the application schemas of a PostgreSQL database (excluding
+/// `information_schema` and the internal `pg_*` schemas).
+///
+/// # Errors
+///
+/// `DB_CONNECT_FAILED` or `DB_METADATA_FAILED` on connection/query failure.
 pub fn discover_postgres_schemas(database_url: &str) -> Result<Vec<String>, PathfinderError> {
     let mut client = Client::connect(database_url, NoTls)
         .map_err(|error| pathfinder_error("DB_CONNECT_FAILED", error))?;
@@ -270,6 +397,12 @@ pub fn discover_postgres_schemas(database_url: &str) -> Result<Vec<String>, Path
     Ok(schemas)
 }
 
+/// Introspect a PostgreSQL database and return its tables and foreign keys
+/// across **all** visible application schemas (not just `public`).
+///
+/// # Errors
+///
+/// `DB_CONNECT_FAILED` or `DB_METADATA_FAILED` on connection/query failure.
 pub fn discover_postgres_schema(database_url: &str) -> Result<SchemaMetadata, PathfinderError> {
     // Do not assume that application tables live in `public`. PostgreSQL
     // installations may use a dedicated schema (or several schemas), which
@@ -278,6 +411,13 @@ pub fn discover_postgres_schema(database_url: &str) -> Result<SchemaMetadata, Pa
     discover_postgres_schema_for_schemas(database_url, &schemas)
 }
 
+/// Introspect a PostgreSQL database restricted to the given `schemas`.
+///
+/// Used by [`discover_postgres_schema`] and the architecture-tree builder.
+///
+/// # Errors
+///
+/// `DB_CONNECT_FAILED` or `DB_METADATA_FAILED` on connection/query failure.
 pub fn discover_postgres_schema_for_schemas(
     database_url: &str,
     schemas: &[String],
@@ -320,6 +460,16 @@ pub fn discover_postgres_schema_for_schemas(
     Ok(SchemaMetadata { tables, edges })
 }
 
+/// Build the full [`PostgresArchitectureTree`] of a server: every database and,
+/// for each, its schemas, tables and outgoing foreign keys.
+///
+/// Databases that cannot be introspected are still listed, with their
+/// [`DatabaseArchitecture::error`] set instead of failing the whole call.
+///
+/// # Errors
+///
+/// Fails only if the initial database listing fails
+/// (`DB_CONNECT_FAILED` / `DB_METADATA_FAILED`).
 pub fn discover_postgres_architecture_tree(
     database_url: &str,
 ) -> Result<PostgresArchitectureTree, PathfinderError> {
@@ -385,6 +535,11 @@ fn discover_database_architecture(
     })
 }
 
+/// Return a copy of `database_url` whose database name is replaced by
+/// `database_name`, preserving any query string.
+///
+/// If the URL has no `://` scheme it is returned unchanged; if it has no path
+/// component the database name is appended.
 pub fn database_url_for_database(database_url: &str, database_name: &str) -> String {
     let Some(scheme_index) = database_url.find("://") else {
         return database_url.to_string();
@@ -406,6 +561,8 @@ pub fn database_url_for_database(database_url: &str, database_name: &str) -> Str
     format!("{}{}{}", prefix, database_name, query)
 }
 
+/// Render a [`PostgresArchitectureTree`] as an ASCII tree (`|--` / `` `-- ``
+/// branches). Returns `"NO_DATABASES"` when the tree is empty.
 pub fn render_postgres_architecture_tree(tree: &PostgresArchitectureTree) -> String {
     if tree.databases.is_empty() {
         return "NO_DATABASES".to_string();
@@ -504,12 +661,25 @@ fn tree_prefix(last: bool) -> &'static str {
     "|  "
 }
 
+/// Discover only the foreign-key edges of a PostgreSQL database.
+///
+/// A convenience wrapper over [`discover_postgres_schema`].
 pub fn discover_postgres_foreign_keys(
     database_url: &str,
 ) -> Result<Vec<ForeignKeyEdge>, PathfinderError> {
     Ok(discover_postgres_schema(database_url)?.edges)
 }
 
+/// Find the single best-scoring foreign-key path between two tables.
+///
+/// Tables may be given qualified (`schema.table`) or bare. Searches up to 6
+/// links deep and returns the highest-scoring path (shortest wins on ties). For
+/// several ordered options prefer [`ranked_paths_by_complexity`].
+///
+/// # Errors
+///
+/// `TABLE_NOT_FOUND` if either table is unknown, `NO_DECLARED_FK_PATH` if no
+/// declared path connects them.
 pub fn best_path(
     edges: &[ForeignKeyEdge],
     source_table: &str,
@@ -536,6 +706,8 @@ pub fn best_path(
     Ok(paths.into_iter().next().expect("paths is not empty"))
 }
 
+/// Collect the distinct tables referenced by a set of edges, sorted by
+/// `schema.table`.
 pub fn list_tables_from_edges(edges: &[ForeignKeyEdge]) -> Vec<TableIdentifier> {
     let mut tables: BTreeMap<String, TableIdentifier> = BTreeMap::new();
 
@@ -547,6 +719,9 @@ pub fn list_tables_from_edges(edges: &[ForeignKeyEdge]) -> Vec<TableIdentifier> 
     tables.into_values().collect()
 }
 
+/// Render a list of names one per line, or `empty_label` when the list is empty.
+///
+/// Used for the databases and schemas listings.
 pub fn render_names(values: &[String], empty_label: &str) -> String {
     if values.is_empty() {
         return empty_label.to_string();
@@ -555,6 +730,7 @@ pub fn render_names(values: &[String], empty_label: &str) -> String {
     values.join("\n")
 }
 
+/// Render tables one `schema.table` per line, or `"NO_TABLES"` when empty.
 pub fn render_tables(tables: &[TableIdentifier]) -> String {
     if tables.is_empty() {
         return "NO_TABLES".to_string();
@@ -567,6 +743,14 @@ pub fn render_tables(tables: &[TableIdentifier]) -> String {
         .join("\n")
 }
 
+/// Render a single [`ScoredPath`] in the requested [`OutputFormat`].
+///
+/// For rendering several paths at once (numbered, simplest first) use
+/// [`render_paths`].
+///
+/// # Errors
+///
+/// `JSON_RENDER_FAILED` if JSON serialization fails.
 pub fn render_path(path: &ScoredPath, format: OutputFormat) -> Result<String, PathfinderError> {
     match format {
         OutputFormat::Text => Ok(render_text(path, 0)),
@@ -956,6 +1140,7 @@ fn is_auth_session_table(table: &str) -> bool {
     table == "Session" || table == "Account" || table == "Verification"
 }
 
+/// Build a [`PathfinderError`] with a stable `code` from any displayable error.
 pub fn pathfinder_error<T: Display>(code: &'static str, error: T) -> PathfinderError {
     PathfinderError {
         code,

@@ -72,6 +72,23 @@ cargo test -p schema-pathfinder
 cargo build --release -p schema-pathfinder --bin schema-pathfinder
 ```
 
+## Documentation API (rustdoc)
+
+Chaque élément public du cœur Rust (`schema_pathfinder::pathfinder_core`) est
+documenté. On génère le site HTML complet — le « web client » de la doc, une
+page par module/type/fonction, avec recherche intégrée — via rustdoc :
+
+```bash
+pnpm doc:rust          # génère le site dans target/doc/
+pnpm doc:rust:open     # génère puis ouvre target/doc/schema_pathfinder/index.html
+# équivalent direct :
+cargo doc --no-deps -p schema-pathfinder --open
+```
+
+Le point d'entrée du site est `target/doc/schema_pathfinder/index.html`. Les
+exemples de la documentation sont aussi exécutés comme doctests par
+`cargo test`.
+
 ## Packaging
 
 ```bash
