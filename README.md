@@ -16,6 +16,8 @@ CLI Rust · UI desktop Slint · UI web React · API Rust · fixtures & tests de 
 
 </div>
 
+> 🇬🇧 An English version of this README is available in [README.en.md](README.en.md).
+
 ---
 
 ## Sommaire
