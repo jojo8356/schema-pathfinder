@@ -746,6 +746,17 @@ pub fn ranked_paths_by_complexity(
 }
 
 /// Normalise a requested maximum link count into the supported range.
+///
+/// The value is clamped to `[1, MAX_LINKS_CEILING]` so an empty or absurd input
+/// can never break path enumeration.
+///
+/// ```
+/// use schema_pathfinder::pathfinder_core::clamp_max_links;
+///
+/// assert_eq!(clamp_max_links(0), 1);
+/// assert_eq!(clamp_max_links(4), 4);
+/// assert_eq!(clamp_max_links(99), 8);
+/// ```
 pub fn clamp_max_links(max_links: usize) -> usize {
     max_links.clamp(1, MAX_LINKS_CEILING)
 }
@@ -1020,5 +1031,139 @@ mod tests {
         assert!(rendered.contains("ClothingItem.clothingSessionId = ClothingSession.id"));
         assert!(rendered.contains("-> ClothingSession.sellerProfileId = SellerProfile.id"));
         assert!(rendered.contains("-> SellerProfile.userId = User.id"));
+    }
+
+    // ---- White-box unit tests for private helpers ---------------------------
+
+    fn t(name: &str) -> TableIdentifier {
+        TableIdentifier {
+            schema: "public".to_string(),
+            table: name.to_string(),
+        }
+    }
+
+    fn e(constraint: &str, from: &str, from_col: &str, to: &str, to_col: &str) -> ForeignKeyEdge {
+        ForeignKeyEdge {
+            constraint_name: constraint.to_string(),
+            from: t(from),
+            from_column: from_col.to_string(),
+            to: t(to),
+            to_column: to_col.to_string(),
+            evidence: vec!["declared_fk".to_string()],
+        }
+    }
+
+    #[test]
+    fn table_key_joins_schema_and_table() {
+        assert_eq!(table_key(&t("A")), "public.A");
+    }
+
+    #[test]
+    fn resolve_table_matches_qualified_and_bare_names() {
+        let tables = vec![t("A"), t("B")];
+
+        assert_eq!(resolve_table(&tables, "public.A"), Some(t("A")));
+        assert_eq!(resolve_table(&tables, "B"), Some(t("B")));
+        assert_eq!(resolve_table(&tables, "Missing"), None);
+    }
+
+    #[test]
+    fn build_adjacency_groups_edges_by_source_table() {
+        let edges = vec![e("A_b", "A", "bId", "B", "id"), e("A_c", "A", "cId", "C", "id")];
+        let adjacency = build_adjacency(&edges);
+
+        assert_eq!(adjacency.get("public.A").map(Vec::len), Some(2));
+        assert!(adjacency.get("public.B").is_none());
+    }
+
+    #[test]
+    fn contains_table_detects_endpoints() {
+        let edges = vec![e("A_b", "A", "bId", "B", "id")];
+
+        assert!(contains_table(&edges, &t("A")));
+        assert!(contains_table(&edges, &t("B")));
+        assert!(!contains_table(&edges, &t("C")));
+    }
+
+    #[test]
+    fn score_path_applies_declared_and_hop_scores() {
+        let edges = vec![e("A_b", "A", "bId", "B", "id")];
+        let scored = score_path(&t("A"), &t("B"), edges);
+
+        assert_eq!(scored.length, 1);
+        assert_eq!(scored.score, 52);
+        assert_eq!(scored.evidence, vec!["declared_fk".to_string()]);
+    }
+
+    #[test]
+    fn technical_and_auth_helpers_flag_known_tables() {
+        assert!(is_technical_table("_prisma_migrations"));
+        assert!(!is_technical_table("User"));
+
+        for name in ["Session", "Account", "Verification"] {
+            assert!(is_auth_session_table(name));
+        }
+        assert!(!is_auth_session_table("User"));
+    }
+
+    #[test]
+    fn quote_identifier_doubles_embedded_quotes() {
+        assert_eq!(quote_identifier("plain"), "\"plain\"");
+        assert_eq!(quote_identifier("a\"b"), "\"a\"\"b\"");
+    }
+
+    #[test]
+    fn render_text_uses_the_one_based_index() {
+        let scored = score_path(&t("A"), &t("B"), vec![e("A_b", "A", "bId", "B", "id")]);
+        let rendered = render_text(&scored, 2);
+
+        assert!(rendered.starts_with("Path 3 score 52 declared_fk length 1"));
+    }
+
+    #[test]
+    fn path_header_summarizes_the_route() {
+        let scored = score_path(
+            &t("A"),
+            &t("C"),
+            vec![e("A_b", "A", "bId", "B", "id"), e("B_c", "B", "cId", "C", "id")],
+        );
+
+        assert_eq!(path_header(&scored, 0), "Path 1 score 104 length 2: A -> B -> C");
+    }
+
+    #[test]
+    fn collect_paths_finds_every_route_within_depth() {
+        let edges = vec![
+            e("A_b", "A", "bId", "B", "id"),
+            e("B_d", "B", "dId", "D", "id"),
+            e("A_c", "A", "cId", "C", "id"),
+            e("C_e", "C", "eId", "E", "id"),
+            e("E_d", "E", "dId", "D", "id"),
+        ];
+
+        let all = collect_paths(&edges, &t("A"), &t("D"), 5);
+        assert_eq!(all.len(), 2);
+
+        let limited = collect_paths(&edges, &t("A"), &t("D"), 2);
+        assert_eq!(limited.len(), 1);
+        assert_eq!(limited[0].length, 2);
+    }
+
+    #[test]
+    fn edge_constraint_signature_joins_constraint_names() {
+        let scored = score_path(
+            &t("A"),
+            &t("C"),
+            vec![e("first", "A", "bId", "B", "id"), e("second", "B", "cId", "C", "id")],
+        );
+
+        assert_eq!(edge_constraint_signature(&scored), "first|second");
+    }
+
+    #[test]
+    fn clamp_max_links_keeps_values_in_range() {
+        assert_eq!(clamp_max_links(0), 1);
+        assert_eq!(clamp_max_links(4), 4);
+        assert_eq!(clamp_max_links(1_000), MAX_LINKS_CEILING);
     }
 }

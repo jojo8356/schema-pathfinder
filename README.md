@@ -111,6 +111,7 @@ chmod +x schema-pathfinder-desktop-0.1.3-x86_64.AppImage
 - [Guide UI](docs/ui-guide.md)
 - [Déploiement et packaging](docs/deployment.md)
 - [Tests et qualité](docs/testing-and-quality.md)
+- [Tutoriel complet : écrire tous les tests](docs/testing-complete-tutorial.md)
 - [Sécurité et confidentialité](docs/security-and-privacy.md)
 - [Roadmap](docs/roadmap.md)
 - [Contribution](CONTRIBUTING.md)
