@@ -30,6 +30,10 @@ type PathResponse = {
 type SourceKind = "fixture" | "sql" | "postgres";
 type OutputFormat = "equation" | "sql" | "text" | "mermaid" | "json";
 
+const DEFAULT_MAX_LINKS = 5;
+const MIN_MAX_LINKS = 1;
+const MAX_MAX_LINKS = 8;
+
 const sourceLabels: Record<SourceKind, string> = {
   fixture: "Fixture file",
   sql: "SQL file",
@@ -51,6 +55,7 @@ function App() {
   const [sourceTable, setSourceTable] = useState("");
   const [targetTable, setTargetTable] = useState("");
   const [format, setFormat] = useState<OutputFormat>("equation");
+  const [maxLinks, setMaxLinks] = useState(DEFAULT_MAX_LINKS);
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -151,6 +156,7 @@ function App() {
           sourceTable: qualifiedTable(schema, sourceTable),
           targetTable: qualifiedTable(schema, targetTable),
           format,
+          maxLinks: clampMaxLinks(maxLinks),
           ...sourcePayload(sourceKind, sources[sourceKind])
         })
       });
@@ -233,6 +239,16 @@ function App() {
               </label>
             </div>
             <div className="format-row">
+              <label className="field maxlinks-field">
+                <span>Max links</span>
+                <input
+                  type="number"
+                  min={MIN_MAX_LINKS}
+                  max={MAX_MAX_LINKS}
+                  value={maxLinks}
+                  onChange={(event) => setMaxLinks(readMaxLinks(event.target.value))}
+                />
+              </label>
               <label className="field inline-field">
                 <span>Format</span>
                 <select value={format} onChange={(event) => setFormat(event.target.value as OutputFormat)}>
@@ -312,6 +328,32 @@ async function readJson<T>(response: Response): Promise<T> {
     throw new Error(responseErrorTitle(json, response.statusText));
   }
   return json as T;
+}
+
+function clampMaxLinks(value: number): number {
+  if (Number.isFinite(value) === false) {
+    return DEFAULT_MAX_LINKS;
+  }
+
+  const rounded = Math.trunc(value);
+
+  if (rounded < MIN_MAX_LINKS) {
+    return MIN_MAX_LINKS;
+  }
+
+  if (rounded > MAX_MAX_LINKS) {
+    return MAX_MAX_LINKS;
+  }
+
+  return rounded;
+}
+
+function readMaxLinks(raw: string): number {
+  if (raw === "") {
+    return MIN_MAX_LINKS;
+  }
+
+  return clampMaxLinks(Number(raw));
 }
 
 function qualifiedTable(schema: string, table: string): string {

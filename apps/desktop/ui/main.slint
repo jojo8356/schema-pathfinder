@@ -1,4 +1,4 @@
-import { Button, ComboBox, LineEdit, ScrollView, TextEdit } from "std-widgets.slint";
+import { Button, ComboBox, LineEdit, ScrollView, SpinBox, TextEdit } from "std-widgets.slint";
 
 component SectionTitle inherits Text {
     color: #111827;
@@ -165,10 +165,11 @@ component PathPanel inherits Panel {
     in-out property <int> target-table-index: 0;
     in-out property <string> selected-format: "equation";
     in-out property <int> selected-format-index: 0;
+    in-out property <int> max-links: 5;
     in-out property <bool> compact: false;
 
     callback select-schema(string);
-    callback find-path(string, string, string, string);
+    callback find-path(string, string, string, string, int);
 
     min-width: 320px;
     min-height: root.compact ? 250px : 186px;
@@ -251,6 +252,21 @@ component PathPanel inherits Panel {
                 }
             }
 
+            FieldLabel {
+                text: "Max links";
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            SpinBox {
+                min-width: 88px;
+                max-width: 110px;
+                horizontal-stretch: 0;
+                minimum: 1;
+                maximum: 8;
+                value <=> root.max-links;
+            }
+
             Rectangle {
                 horizontal-stretch: 1;
                 min-width: 0px;
@@ -260,7 +276,7 @@ component PathPanel inherits Panel {
                 text: "Find path";
                 horizontal-stretch: 0;
                 clicked => {
-                    root.find-path(root.selected-schema, root.source-table, root.target-table, root.selected-format);
+                    root.find-path(root.selected-schema, root.source-table, root.target-table, root.selected-format, root.max-links);
                 }
             }
         }
@@ -333,6 +349,7 @@ export component AppWindow inherits Window {
     in-out property <[string]> table-options;
     in-out property <string> selected-format: "equation";
     in-out property <int> selected-format-index: 0;
+    in-out property <int> max-links: 5;
     in-out property <string> selected-source-kind: "fixture";
     in-out property <int> selected-source-index: 0;
     in-out property <string> databases-text;
@@ -342,7 +359,7 @@ export component AppWindow inherits Window {
     callback select-source(string, string, string);
     callback load-source(string, string);
     callback select-schema(string);
-    callback find-path(string, string, string, string);
+    callback find-path(string, string, string, string, int);
 
     VerticalLayout {
         padding: 0px;
@@ -413,11 +430,12 @@ export component AppWindow inherits Window {
                     target-table-index <=> root.target-table-index;
                     selected-format <=> root.selected-format;
                     selected-format-index <=> root.selected-format-index;
+                    max-links <=> root.max-links;
                     select-schema(schema) => {
                         root.select-schema(schema);
                     }
-                    find-path(schema, from-table, to-table, format) => {
-                        root.find-path(schema, from-table, to-table, format);
+                    find-path(schema, from-table, to-table, format, links) => {
+                        root.find-path(schema, from-table, to-table, format, links);
                     }
                 }
 
@@ -471,11 +489,12 @@ export component AppWindow inherits Window {
                     target-table-index <=> root.target-table-index;
                     selected-format <=> root.selected-format;
                     selected-format-index <=> root.selected-format-index;
+                    max-links <=> root.max-links;
                     select-schema(schema) => {
                         root.select-schema(schema);
                     }
-                    find-path(schema, from-table, to-table, format) => {
-                        root.find-path(schema, from-table, to-table, format);
+                    find-path(schema, from-table, to-table, format, links) => {
+                        root.find-path(schema, from-table, to-table, format, links);
                     }
                 }
 

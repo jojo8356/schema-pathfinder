@@ -1,10 +1,11 @@
 use lexopt::prelude::*;
 use schema_pathfinder::pathfinder_core::{
-    best_path, discover_postgres_architecture_tree, discover_postgres_databases,
+    clamp_max_links, discover_postgres_architecture_tree, discover_postgres_databases,
     discover_postgres_schema, discover_postgres_schemas, load_schema_from_env_or_fixture,
     load_schema_from_fixture, load_schema_from_sql_file, parse_format, pathfinder_error,
-    render_names, render_path, render_postgres_architecture_tree, render_tables, OutputFormat,
-    PathfinderError, SchemaMetadata, SUPPORTED_FORMATS,
+    ranked_paths_by_complexity, render_names, render_paths, render_postgres_architecture_tree,
+    render_tables, OutputFormat, PathfinderError, SchemaMetadata, DEFAULT_MAX_LINKS,
+    SUPPORTED_FORMATS,
 };
 use std::env;
 
@@ -15,6 +16,7 @@ struct Args {
     fixture: Option<String>,
     sql: Option<String>,
     database_url: Option<String>,
+    max_links: usize,
 }
 
 #[derive(Debug)]
@@ -76,8 +78,13 @@ fn run() -> Result<(), PathfinderError> {
             ref target_table,
         } => {
             let schema = load_schema(&args)?;
-            let path = best_path(&schema.edges, source_table, target_table)?;
-            println!("{}", render_path(&path, args.format)?);
+            let paths = ranked_paths_by_complexity(
+                &schema.edges,
+                source_table,
+                target_table,
+                args.max_links,
+            )?;
+            println!("{}", render_paths(&paths, args.format)?);
             Ok(())
         }
         CommandMode::Fixture => {
@@ -97,6 +104,7 @@ fn parse_args() -> Result<Args, PathfinderError> {
     let mut fixture = None;
     let mut sql = None;
     let mut database_url = None;
+    let mut max_links = DEFAULT_MAX_LINKS;
     let mut top_level_tables = false;
     let mut top_level_databases = false;
     let mut top_level_schemas = false;
@@ -114,6 +122,7 @@ fn parse_args() -> Result<Args, PathfinderError> {
                     fixture,
                     sql,
                     database_url: None,
+                    max_links,
                 });
             }
             Long("tables") => {
@@ -164,6 +173,15 @@ fn parse_args() -> Result<Args, PathfinderError> {
                     .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
                 database_url = Some(value);
             }
+            Long("max-links") => {
+                let raw_value = parser
+                    .value()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                let value: usize = raw_value
+                    .parse()
+                    .map_err(|error| pathfinder_error("ARGS_INVALID", error))?;
+                max_links = clamp_max_links(value);
+            }
             Value(value) => {
                 let parsed: String = value
                     .string()
@@ -190,6 +208,7 @@ fn parse_args() -> Result<Args, PathfinderError> {
         fixture,
         sql,
         database_url,
+        max_links,
     })
 }
 
@@ -388,6 +407,10 @@ fn print_help() {
     println!("  --database-url <url>     read PostgreSQL metadata from this connection URL");
     println!("  --fixture <path>         read FK metadata from a fixture JSON file");
     println!("  --sql <path>             read PostgreSQL DDL SQL and convert it to metadata");
+    println!(
+        "  --max-links <n>          max number of FK links per listed path (default {}, capped at {})",
+        DEFAULT_MAX_LINKS, schema_pathfinder::pathfinder_core::MAX_LINKS_CEILING
+    );
     println!("  -h, --help               display help for command");
     println!();
     println!("Commands:");
@@ -398,7 +421,7 @@ fn print_help() {
     println!("  schemas                  List PostgreSQL schemas in the selected database");
     println!("  tree                     Print all visible databases, schemas, tables, and FKs");
     println!("  fixture                  Print generated fixture JSON from the selected source");
-    println!("  path <source> <target>   Find a declared FK path between two tables");
+    println!("  path <source> <target>   List declared FK paths between two tables, simplest first");
     println!();
     println!("Examples:");
     println!(

@@ -7,3 +7,4 @@ coverage/
 target/
 *.pem
 *.key
+dev_mock_api.mjs

@@ -65,7 +65,21 @@ Le mode tree liste les bases visibles, reconnecte à chaque base accessible, pui
 ```bash
 schema-pathfinder path ClothingItem User --format equation --fixture fixtures/postgres/dressshot_seed_fk_edges.json
 schema-pathfinder path public.ClothingItem public.User --format sql --database-url postgres://readonly:change-me@localhost:5432/postgres
+schema-pathfinder path BON_DE_LIVRAISON COMMANDE_CLIENT --max-links 3 --database-url postgres://readonly:change-me@localhost:5432/postgres
 ```
+
+La commande `path` liste **tous** les chemins de clés étrangères entre les deux
+tables, du plus simple au plus complexe : d'abord les chemins à 1 lien, puis ceux
+à 2 liens, etc. À longueur égale, le chemin au meilleur score est affiché en
+premier. Chaque chemin est numéroté (`Path 1`, `Path 2`, ...).
+
+C'est utile quand le chemin le plus « évident » passe par une table qui n'est pas
+encore renseignée au moment de la saisie : on peut alors choisir un autre chemin
+plus court ou qui évite cette table.
+
+- `--max-links <n>` : nombre maximal de liens par chemin. Par défaut `5`, borné
+  entre `1` et `8`. Au-delà de 5 liens, les jointures deviennent en général trop
+  complexes à saisir.
 
 Formats disponibles :
 

@@ -116,6 +116,18 @@ describe("desktop UI", () => {
     assert.match(layoutSection, /vertical-stretch: 1;/);
   });
 
+  it("lets the user pick a maximum number of links and lists ranked paths", () => {
+    assert.match(desktopUi, /import \{[^}]*SpinBox[^}]*\} from "std-widgets.slint";/);
+    assert.match(desktopUi, /text: "Max links";/);
+    assert.match(desktopUi, /SpinBox \{/);
+    assert.match(desktopUi, /value <=> root\.max-links;/);
+    assert.match(desktopUi, /callback find-path\(string, string, string, string, int\);/);
+    assert.match(desktopMain, /ranked_paths_by_complexity/);
+    assert.match(desktopMain, /render_paths/);
+    assert.match(desktopMain, /set_max_links/);
+    assert.doesNotMatch(desktopMain, /best_path/);
+  });
+
   it("keeps the header minimal and removes the footer", () => {
     assert.equal(desktopUi.includes('text: "Schema Pathfinder";'), true);
     assert.doesNotMatch(desktopUi, /Local FK path inspector/);

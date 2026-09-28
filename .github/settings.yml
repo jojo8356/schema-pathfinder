@@ -1,0 +1,44 @@
+# Repository configuration (git-tracked).
+#
+# This file records the canonical GitHub description and topics for the project.
+# It is applied automatically when the "Settings" GitHub App
+# (https://github.com/apps/settings) is installed on the repository, or it can be
+# applied manually with:
+#
+#   gh repo edit jojo8356/schema-pathfinder \
+#     --description "<repository.description below>" \
+#     --add-topic postgresql --add-topic rust --add-topic cli ...  # one per topic
+#
+repository:
+  name: schema-pathfinder
+  description: >-
+    Standalone tool that finds foreign-key join paths between PostgreSQL tables,
+    ranked from the simplest to the most complex. A shared Rust core powers a
+    CLI, a Slint desktop UI, a React web UI and a lightweight HTTP API. Reads
+    schema metadata only, never business data.
+  homepage: ""
+  has_issues: true
+  has_projects: false
+  has_wiki: false
+  has_downloads: true
+  default_branch: main
+  allow_squash_merge: true
+  allow_merge_commit: true
+  allow_rebase_merge: true
+  delete_branch_on_merge: true
+  topics:
+    - postgresql
+    - rust
+    - cli
+    - database-tools
+    - foreign-keys
+    - schema
+    - pathfinding
+    - sql
+    - react
+    - slint
+    - desktop-app
+    - developer-tools
+    - database-schema
+    - graph
+    - dba

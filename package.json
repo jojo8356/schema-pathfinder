@@ -15,6 +15,8 @@
     "build:desktop:appimage": "node scripts/build_desktop_appimage.mjs",
     "build:desktop:deb": "node scripts/build_desktop_deb.mjs",
     "build:desktop:packages": "node scripts/build_desktop_deb.mjs && node scripts/build_desktop_appimage.mjs",
+    "doc:rust": "cargo doc --no-deps -p schema-pathfinder",
+    "doc:rust:open": "cargo doc --no-deps -p schema-pathfinder --open",
     "build:web": "pnpm --filter @schema-pathfinder/web build",
     "build:api": "cargo build --release -p schema-pathfinder --features api --bin schema-pathfinder-api",
     "build:saas": "pnpm build:web && pnpm build:api"

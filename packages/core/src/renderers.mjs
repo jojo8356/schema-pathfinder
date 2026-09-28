@@ -85,6 +85,45 @@ export function renderPath(path, format) {
   return rendererRegistry[parsed.data](path);
 }
 
+function pathHeader(path, index) {
+  const tablePath = [path.source.table];
+
+  for (const edge of path.edges) {
+    tablePath.push(edge.to.table);
+  }
+
+  return `Path ${index + 1} score ${path.score} length ${path.length}: ${tablePath.join(" -> ")}`;
+}
+
+// Render several ranked paths as one block, simplest first. Each path is
+// numbered; for the non-text formats a short header is added so the reader can
+// tell the paths apart.
+export function renderPaths(paths, format) {
+  const parsed = parseOutputFormat(format);
+
+  if (parsed.success === false) {
+    throw new Error(`Unsupported output format: ${format}. Supported formats: ${formatList()}`);
+  }
+
+  if (paths.length === 0) {
+    return "";
+  }
+
+  if (parsed.data === "json") {
+    return JSON.stringify(paths, null, 2);
+  }
+
+  const blocks = paths.map((path, index) => {
+    if (parsed.data === "text") {
+      return renderText(path, index);
+    }
+
+    return `${pathHeader(path, index)}\n${rendererRegistry[parsed.data](path)}`;
+  });
+
+  return blocks.join("\n\n");
+}
+
 function quoteIdentifier(identifier) {
   return `"${identifier.replaceAll("\"", "\"\"")}"`;
 }
