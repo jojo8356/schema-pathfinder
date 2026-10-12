@@ -68,25 +68,22 @@ jobs:
         run: pnpm lint
 
       - name: Run Rust tests
-        id: rust-tests
-        continue-on-error: true
+        run: cargo test --locked --workspace
+
+      # The Slint compiler only warns about a binding loop, but such a loop "may
+      # cause panic at runtime", so treat it as a failure. Touching the .slint
+      # file forces slint-build to run again and re-emit its warnings.
+      - name: Check the desktop UI for Slint binding loops
         shell: bash
         run: |
           set -o pipefail
-          cargo test --locked --workspace 2>&1 | tee rust-tests.log
-
-      - name: Publish the Rust test log
-        if: always()
-        shell: bash
-        run: |
-          mkdir -p ci-logs
-          tail -c 300000 rust-tests.log > ci-logs/rust-tests.log
-          git config user.name "github-actions[bot]"
-          git config user.email "41898532+github-actions[bot]@users.noreply.github.com"
-          git add ci-logs/rust-tests.log
-          git commit -m "ci: publish the Rust test log [skip ci]" || true
-          git push origin "HEAD:${GITHUB_REF#refs/heads/}"
-          if [ "${{ steps.rust-tests.outcome }}" != "success" ]; then exit 1; fi
+          touch apps/desktop/ui/main.slint
+          cargo build --locked -p schema-pathfinder-desktop 2>&1 | tee desktop-build.log
+          if grep --quiet "binding loop" desktop-build.log; then
+            echo "::error::Slint reports a binding loop in apps/desktop/ui/main.slint"
+            grep "binding loop" desktop-build.log
+            exit 1
+          fi
 
       - name: Build the API binary
         run: cargo build --locked -p schema-pathfinder --features api --bin schema-pathfinder-api
