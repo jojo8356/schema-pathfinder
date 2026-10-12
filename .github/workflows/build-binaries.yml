@@ -81,7 +81,9 @@ jobs:
           cargo build --locked -p schema-pathfinder-desktop 2>&1 | tee desktop-build.log
           if grep --quiet "binding loop" desktop-build.log; then
             echo "::error::Slint reports a binding loop in apps/desktop/ui/main.slint"
-            grep "binding loop" desktop-build.log
+            grep "binding loop" desktop-build.log | head --lines 4 | while read -r line; do
+              echo "::error title=Slint binding loop::${line}"
+            done
             exit 1
           fi
 
