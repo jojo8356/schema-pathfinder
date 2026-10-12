@@ -138,35 +138,46 @@ Usage: schema-pathfinder <command> [options]
 
 Commands:
   tables                   List tables (fixture, SQL, or PostgreSQL metadata)
-  databases, dbs           List PostgreSQL databases
-  schemas                  List schemas of the selected database
+  schemas                  List PostgreSQL schemas of the selected database
+  databases                List PostgreSQL databases (alias: dbs)
   tree                     Print visible databases, schemas, tables, and FKs
-  fixture                  Generate the JSON fixture from the chosen source
   path <source> <target>   List FK paths between two tables, simplest first
+  fixture                  Generate the JSON fixture from the chosen source
+  help [command]           Display general help, or the help of one command
+  version                  Print the version
 
 Options:
-  --tables | --databases,--dbs | --schemas | --tree   command shortcuts
-  --database-url <url>     read metadata from this PostgreSQL connection
   --fixture <path>         read FKs from a JSON fixture
   --sql <path>             read a PostgreSQL DDL and convert it to metadata
-  --max-links <n>          max number of FK links per listed path (default 5)
-  --format <fmt>           text | equation | sql | mermaid | json
+  --database-url <url>     read metadata from this PostgreSQL connection
+  --max-links <n>          max number of FK links per listed path (default 5, capped at 8)
+  --format <fmt>           text | equation | json | sql | mermaid
   -h, --help               display help
+  -V, --version            print the version
+
+Legacy flags (compatibility):
+  --tables, --schemas, --tree, --databases, --dbs
 
 Environment:
   DATABASE_URL             connection string used when no explicit source is provided
+
+Exit codes:
+  0 success - 1 runtime error - 2 usage error
 ```
+
+Global options are accepted before or after the command, and only one explicit
+source may be given at a time.
 
 Examples:
 
 ```bash
 # List the tables of a fixture
-schema-pathfinder --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
+schema-pathfinder tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
 
 # Introspect a live PostgreSQL database
-schema-pathfinder --tree      --database-url postgres://readonly:secret@localhost:5432/postgres
-schema-pathfinder --schemas   --database-url postgres://readonly:secret@localhost:5432/postgres
-schema-pathfinder --databases --database-url postgres://readonly:secret@localhost:5432/postgres
+schema-pathfinder tree      --database-url postgres://readonly:secret@localhost:5432/postgres
+schema-pathfinder schemas   --database-url postgres://readonly:secret@localhost:5432/postgres
+schema-pathfinder databases --database-url postgres://readonly:secret@localhost:5432/postgres
 
 # Paths between two tables, capped at 3 links, in SQL
 schema-pathfinder path ClothingItem User --max-links 3 --format sql \
@@ -202,7 +213,8 @@ schema-pathfinder/
 │   ├── cli-rust/            # Rust core: engine, CLI, and API
 │   │   ├── src/
 │   │   │   ├── pathfinder_core.rs        # shared engine (graph, scoring, renderers)
-│   │   │   ├── main.rs                   # CLI binary (lexopt)
+│   │   │   ├── cli.rs                    # pure CLI surface: commands, options, help
+│   │   │   ├── main.rs                   # CLI binary (dispatch + exit codes)
 │   │   │   ├── postgres_sql_metadata.rs  # PostgreSQL DDL parsing
 │   │   │   └── bin/schema-pathfinder-api.rs  # HTTP API (tiny_http)
 │   │   └── tests/           # Rust integration tests (public API)
@@ -226,10 +238,10 @@ stability of the formats.
 
 ```bash
 pnpm install                                   # workspace dependencies
-pnpm test                                       # Node tests (66)
+pnpm test                                       # Node tests
 pnpm lint                                        # scaffold + contracts
 pnpm typecheck                                    # structure check
-cargo test -p schema-pathfinder                   # Rust tests (65)
+cargo test --workspace                            # Rust tests (unit, integration, doctests)
 cargo build --release -p schema-pathfinder        # optimized CLI build
 ```
 
