@@ -63,9 +63,9 @@ component TableSelector inherits ComboBox {
     min-width: 0px;
     horizontal-stretch: 1;
 
-    selected(value) => {
-        root.value = value;
-        root.picked(value);
+    selected(picked-value) => {
+        root.value = picked-value;
+        root.picked(picked-value);
     }
 }
 
@@ -78,8 +78,8 @@ component FormatSelector inherits ComboBox {
     min-width: 0px;
     horizontal-stretch: 1;
 
-    selected(value) => {
-        root.value = value;
+    selected(picked-value) => {
+        root.value = picked-value;
     }
 }
 
@@ -401,25 +401,23 @@ component PathPanel inherits Panel {
                 MaxLinksBox {
                     value <=> root.max-links;
                 }
+            }
+        }
 
-                Rectangle {
-                    horizontal-stretch: 1;
-                    min-width: 0px;
-                }
+        if root.compact: HorizontalLayout {
+            spacing: 8px;
+            vertical-stretch: 0;
+
+            Rectangle {
+                horizontal-stretch: 1;
+                min-width: 0px;
             }
 
-            Row {
-                Rectangle {
-                    horizontal-stretch: 1;
-                    min-width: 0px;
-                }
-
-                Button {
-                    text: "Find path";
-                    horizontal-stretch: 0;
-                    clicked => {
-                        root.find-path(root.selected-schema, root.source-table, root.target-table, root.selected-format, root.max-links);
-                    }
+            Button {
+                text: "Find path";
+                horizontal-stretch: 0;
+                clicked => {
+                    root.find-path(root.selected-schema, root.source-table, root.target-table, root.selected-format, root.max-links);
                 }
             }
         }

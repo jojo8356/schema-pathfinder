@@ -28,14 +28,24 @@ The web UI uses React and calls the Rust API. It is useful when you want a brows
 The Slint window no longer sets `width` and `height`: in Slint, setting both of these properties on a `Window` locks the window to a fixed size and the window manager refuses any resize. Only the layout constraints are declared:
 
 - `preferred-width` / `preferred-height`: opening size (1280 x 820).
-- `min-width` / `min-height`: minimum usable size (560 x 460).
-- Panels use `min-*`, `preferred-*`, and `*-stretch` instead of hard-coded heights and widths.
+- `min-width` / `min-height`: minimum usable size (420 x 380), small enough for a half-screen tile or a short window.
+- Panels use `min-*`, `preferred-*`, and `*-stretch` instead of hard-coded heights and widths, with `min-width: 0px` so they can shrink.
 
-The layout is responsive:
+The layout is responsive and follows two thresholds declared on the window:
 
-- above 900 px wide, the Source column stays on the left and the Path and Result panels take the remaining width;
-- below 900 px, the interface switches to a single scrolling column so that no control is clipped;
-- the Result panel absorbs the extra vertical space, and the Databases and Tables lists show a scrollbar only when their content overflows.
+```slint
+property <bool> compact: root.width < 900px;
+property <bool> wide: root.width >= 1500px;
+```
+
+- **Above 900 px**: the Source column stays on the left and the Path and Result panels take the remaining width. The Schema / From table / To table selectors are laid out as columns, and Format / Max links / Find path fit on a single row.
+- **Below 900 px** (`compact`): the interface switches to a single scrolling column, and every control of the Path panel moves to its own line with its label on the left. No selector is squeezed below a readable width, even at 420 px.
+- **Above 1500 px** (`wide`): the workspace stops stretching. It is centred and capped at 1800 px (`content-max-width`), the Source column widens (up to 460 px) and the typography goes from 13 px to 15 px. The monospace result lines stay readable instead of running across the whole screen.
+- Margins follow the same rule (`gutter`: 12 px compact, 16 px normal, 28 px wide).
+
+The Result panel absorbs the extra vertical space, and the Databases and Tables lists show a scrollbar only when their content overflows.
+
+The controls shared by both layouts (table selectors, format selector, max-links box) are defined once in `main.slint` (`TableSelector`, `FormatSelector`, `MaxLinksBox`) so the wide and the narrow layouts cannot drift apart.
 
 ## Recommended flow
 
