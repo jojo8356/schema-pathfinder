@@ -209,7 +209,7 @@ struct Fixture {
     edges: Vec<ForeignKeyEdge>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// A rendering format for a path or list of paths.
 ///
 /// Obtain a value with [`parse_format`] and get its canonical name back with
@@ -1147,6 +1147,20 @@ pub fn pathfinder_error<T: Display>(code: &'static str, error: T) -> PathfinderE
         message: error.to_string(),
     }
 }
+
+impl PathfinderError {
+    /// `true` when the error was caused by how the tool was invoked rather than
+    /// by the data or the database.
+    ///
+    /// The CLI maps these to exit code `2` (usage error) so that scripts can
+    /// tell "you called me wrong" apart from "the run failed".
+    pub fn is_usage_error(&self) -> bool {
+        USAGE_ERROR_CODES.contains(&self.code)
+    }
+}
+
+/// Error codes that mean the invocation itself was wrong.
+pub const USAGE_ERROR_CODES: [&str; 2] = ["ARGS_INVALID", "UNSUPPORTED_FORMAT"];
 
 impl Display for PathfinderError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
