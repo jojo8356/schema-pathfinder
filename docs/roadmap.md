@@ -20,7 +20,8 @@
   `dressshot_seed_fk_edges.json`.
 - **Améliorer l'affichage desktop sur petits écrans et grands écrans.**
   Fenêtre minimale ramenée à 420 x 380, panneau Path empilé sous 900 px, espace de travail centré et
-  plafonné à 1800 px au-dessus de 1500 px, typographie et marges adaptatives.
+  plafonné à 1800 px, en-tête plus compact sur fenêtre courte — sans `binding loop` Slint : aucune
+  taille horizontale, padding ou `font-size` ne dépend de la largeur de la fenêtre.
 
 ## Moyen terme
 

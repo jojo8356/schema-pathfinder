@@ -64,11 +64,11 @@ Two ways to publish:
 
 ```bash
 # 1. publication triggered by a tag
-git tag v0.1.3
-git push origin v0.1.3
+git tag v0.1.4
+git push origin v0.1.4
 
 # 2. manual publication to an existing release
-gh workflow run build-binaries.yml --ref <branch> --field release_tag=v0.1.3
+gh workflow run build-binaries.yml --ref <branch> --field release_tag=v0.1.4
 ```
 
 Assets published on the release:
@@ -89,8 +89,8 @@ SHA256SUMS
 Installing from the release:
 
 ```bash
-sudo apt-get install ./schema-pathfinder_0.1.3_amd64.deb
-sudo apt-get install ./schema-pathfinder-desktop_0.1.3_amd64.deb
+sudo apt-get install ./schema-pathfinder_0.1.4_amd64.deb
+sudo apt-get install ./schema-pathfinder-desktop_0.1.4_amd64.deb
 ```
 
 ## Docker

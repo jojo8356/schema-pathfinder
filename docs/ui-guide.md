@@ -31,21 +31,39 @@ La fenêtre Slint ne fixe plus `width` et `height` : dans Slint, poser ces deux 
 - `min-width` / `min-height` : taille minimale utilisable (420 x 380), assez petite pour un demi-écran ou une fenêtre courte.
 - Les panneaux utilisent `min-*`, `preferred-*` et `*-stretch` au lieu de hauteurs et largeurs codées en dur, avec `min-width: 0px` pour pouvoir se réduire.
 
-Le layout est responsive et suit deux seuils déclarés sur la fenêtre :
+Le layout est responsive autour d'un seuil structurel déclaré sur la fenêtre, et d'un
+plafond de largeur pour l'espace de travail :
 
 ```slint
 property <bool> compact: root.width < 900px;
-property <bool> wide: root.width >= 1500px;
+property <length> content-max-width: 1800px;
+property <length> header-height: root.compact ? 48px : 56px;
 ```
 
 - **Au-dessus de 900 px** : la colonne Source reste à gauche et les panneaux Path et Result occupent la largeur restante. Les trois sélecteurs Schema / From table / To table sont alignés en colonnes, et Format / Max links / Find path tiennent sur une seule ligne.
-- **En dessous de 900 px** (`compact`) : l'interface bascule sur une seule colonne défilante, et chaque contrôle du panneau Path passe sur sa propre ligne avec son libellé à gauche. Aucun sélecteur n'est compressé sous une largeur lisible, même à 420 px.
-- **Au-dessus de 1500 px** (`wide`) : l'espace de travail cesse de s'étirer. Il est centré et plafonné à 1800 px (`content-max-width`), la colonne Source s'élargit (jusqu'à 460 px) et la typographie passe de 13 px à 15 px. Les lignes monospace du résultat restent lisibles au lieu de traverser tout l'écran.
-- Les marges suivent le même principe (`gutter` : 12 px en compact, 16 px en normal, 28 px en wide).
+- **En dessous de 900 px** (`compact`) : l'interface bascule sur une seule colonne défilante, chaque contrôle du panneau Path passe sur sa propre ligne avec son libellé à gauche, et le bouton Find path est aligné à droite. Aucun sélecteur n'est compressé sous une largeur lisible, même à 420 px.
+- **Grands écrans** : l'espace de travail cesse de s'étirer. Il est centré et plafonné à 1800 px (`Math.min(parent.width, root.content-max-width)` avec `x: (parent.width - self.width) / 2`), et la colonne Source garde une largeur confortable (260 à 440 px) au lieu de suivre la fenêtre. Les lignes monospace du résultat restent lisibles au lieu de traverser tout l'écran.
 
 Le panneau Result absorbe l'espace vertical supplémentaire, et les listes Databases et Tables affichent une barre de défilement uniquement quand leur contenu dépasse.
 
 Les contrôles partagés par les deux dispositions (sélecteurs de table, sélecteur de format, curseur Max links) sont définis une seule fois dans `main.slint` (`TableSelector`, `FormatSelector`, `MaxLinksBox`) pour que le layout large et le layout étroit ne puissent pas diverger.
+
+### Contrainte Slint à connaître
+
+Slint dimensionne la fenêtre à partir du *layout info* du contenu. Lier une largeur, un padding ou
+un `font-size` à `root.width` referme donc une boucle sur la largeur de la fenêtre, ce que le
+compilateur signale par :
+
+```text
+warning: The binding for the property 'font-size' is part of a binding loop
+(root.wide -> font-size -> layoutinfo-h -> ... -> root.layoutinfo-h -> root.wide).
+         This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime
+```
+
+`root.width` ne peut donc piloter que des choix **structurels** (les branches `if root.compact`) et
+des tailles **verticales** (`header-height`). Les paddings et les largeurs sont des constantes
+définies à l'intérieur de chaque branche. Un test Node
+(`never derives a horizontal size, padding or font from the window width`) verrouille cette règle.
 
 ## Parcours conseillé
 

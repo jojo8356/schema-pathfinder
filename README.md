@@ -11,8 +11,8 @@ CLI Rust · UI desktop Slint · UI web React · API Rust · fixtures & tests de 
 ![Node](https://img.shields.io/badge/Node-%3E%3D22-339933?logo=nodedotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-metadata%20only-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-131%20(66%20Node%20%2B%2065%20Rust)-brightgreen)
-![Status](https://img.shields.io/badge/version-0.1.3-blue)
+![Tests](https://img.shields.io/badge/tests-228%20(76%20Node%20%2B%20152%20Rust)-brightgreen)
+![Status](https://img.shields.io/badge/version-0.1.4-blue)
 
 </div>
 
@@ -248,8 +248,9 @@ cargo build --release -p schema-pathfinder        # build optimisé du CLI
 
 ## Tests et qualité
 
-Le projet est couvert par **131 tests** : **66 tests Node** (comportements et contrats) et
-**65 tests Rust** (unitaires + intégration).
+Le projet est couvert par **228 tests** : **76 tests Node** (comportements et contrats) et
+**152 tests Rust** (49 tests unitaires, 100 tests d'intégration — dont 24 qui pilotent le binaire
+CLI compilé et 33 sur le parser SQL — et 3 doctests).
 
 - Tests unitaires Rust : `#[cfg(test)] mod tests` au sein des modules.
 - Tests d'intégration Rust : un fichier par domaine sous `apps/cli-rust/tests/`
@@ -286,21 +287,21 @@ node scripts/build_desktop_appimage.mjs  # .AppImage du desktop
 
 Les artefacts sont produits dans `dist/` :
 
-- `schema-pathfinder_0.1.3_amd64.deb`
-- `schema-pathfinder-0.1.3-x86_64.AppImage`
-- `schema-pathfinder-desktop_0.1.3_amd64.deb`
-- `schema-pathfinder-desktop-0.1.3-x86_64.AppImage`
+- `schema-pathfinder_0.1.4_amd64.deb`
+- `schema-pathfinder-0.1.4-x86_64.AppImage`
+- `schema-pathfinder-desktop_0.1.4_amd64.deb`
+- `schema-pathfinder-desktop-0.1.4-x86_64.AppImage`
 
 Installation depuis une release (artefacts construits et vérifiés par CI, avec `SHA256SUMS`) :
 
 ```bash
 # paquets Debian
-sudo apt-get install ./schema-pathfinder_0.1.3_amd64.deb
-sudo apt-get install ./schema-pathfinder-desktop_0.1.3_amd64.deb
+sudo apt-get install ./schema-pathfinder_0.1.4_amd64.deb
+sudo apt-get install ./schema-pathfinder-desktop_0.1.4_amd64.deb
 
 # ou AppImage, sans installation
-chmod +x schema-pathfinder-desktop-0.1.3-x86_64.AppImage
-./schema-pathfinder-desktop-0.1.3-x86_64.AppImage
+chmod +x schema-pathfinder-desktop-0.1.4-x86_64.AppImage
+./schema-pathfinder-desktop-0.1.4-x86_64.AppImage
 ```
 
 ## Sécurité et confidentialité

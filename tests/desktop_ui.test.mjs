@@ -110,10 +110,10 @@ describe("desktop UI", () => {
 
   it("adapts the layout to the window width", () => {
     assert.match(desktopUi, /property <bool> compact: root\.width < 900px;/);
-    assert.match(desktopUi, /property <bool> wide: root\.width >= 1500px;/);
     assert.match(desktopUi, /if !root\.compact: Rectangle \{/);
     assert.match(desktopUi, /if root\.compact: ScrollView \{/);
     assert.match(desktopUi, /viewport-height: Math\.max\(self\.visible-height, \d+px\);/);
+    assert.match(desktopUi, /property <length> header-height: root\.compact \? 48px : 56px;/);
   });
 
   it("keeps the workspace usable on a small window", () => {
@@ -139,21 +139,24 @@ describe("desktop UI", () => {
   });
 
   it("caps and centres the workspace on large screens", () => {
-    assert.match(desktopUi, /property <length> content-max-width: \d+px;/);
+    assert.match(desktopUi, /property <length> content-max-width: 1800px;/);
     assert.match(desktopUi, /width: Math\.min\(parent\.width, root\.content-max-width\);/);
     assert.match(desktopUi, /x: \(parent\.width - self\.width\) \/ 2;/);
-    assert.match(desktopUi, /max-width: root\.wide \? 460px : 380px;/);
+    // The sidebar keeps a readable width instead of stretching with the window.
+    assert.match(desktopUi, /preferred-width: 340px;/);
+    assert.match(desktopUi, /max-width: 440px;/);
   });
 
-  it("scales typography and gutters with the window size", () => {
-    assert.match(desktopUi, /property <length> base-font: root\.wide \? 15px : 13px;/);
-    assert.match(
-      desktopUi,
-      /property <length> gutter: root\.compact \? 12px : \(root\.wide \? 28px : 16px\);/
-    );
-    assert.match(desktopUi, /font-size: root\.base-font;/);
-    assert.match(desktopUi, /padding: root\.gutter;/);
-    assert.match(desktopUi, /base-font: root\.base-font;/);
+  it("never derives a horizontal size, padding or font from the window width", () => {
+    // Slint sizes the window from the layout info, so any horizontal size,
+    // padding or font-size bound to root.width closes a binding loop that
+    // "may cause panic at runtime". Only `if` branches and vertical sizes may
+    // depend on root.width.
+    assert.doesNotMatch(desktopUi, /font-size: root\./);
+    assert.doesNotMatch(desktopUi, /padding[a-z-]*: root\./);
+    assert.doesNotMatch(desktopUi, /(?:min|preferred|max)-width: root\./);
+    assert.doesNotMatch(desktopUi, /width: root\.compact/);
+    assert.match(desktopUi, /height: root\.header-height;/);
   });
 
   it("lets the panels stretch instead of hard coding panel sizes", () => {

@@ -31,21 +31,39 @@ The Slint window no longer sets `width` and `height`: in Slint, setting both of 
 - `min-width` / `min-height`: minimum usable size (420 x 380), small enough for a half-screen tile or a short window.
 - Panels use `min-*`, `preferred-*`, and `*-stretch` instead of hard-coded heights and widths, with `min-width: 0px` so they can shrink.
 
-The layout is responsive and follows two thresholds declared on the window:
+The layout is responsive around one structural threshold declared on the window, plus a width cap
+for the workspace:
 
 ```slint
 property <bool> compact: root.width < 900px;
-property <bool> wide: root.width >= 1500px;
+property <length> content-max-width: 1800px;
+property <length> header-height: root.compact ? 48px : 56px;
 ```
 
 - **Above 900 px**: the Source column stays on the left and the Path and Result panels take the remaining width. The Schema / From table / To table selectors are laid out as columns, and Format / Max links / Find path fit on a single row.
-- **Below 900 px** (`compact`): the interface switches to a single scrolling column, and every control of the Path panel moves to its own line with its label on the left. No selector is squeezed below a readable width, even at 420 px.
-- **Above 1500 px** (`wide`): the workspace stops stretching. It is centred and capped at 1800 px (`content-max-width`), the Source column widens (up to 460 px) and the typography goes from 13 px to 15 px. The monospace result lines stay readable instead of running across the whole screen.
-- Margins follow the same rule (`gutter`: 12 px compact, 16 px normal, 28 px wide).
+- **Below 900 px** (`compact`): the interface switches to a single scrolling column, every control of the Path panel moves to its own line with its label on the left, and the Find path button is right-aligned. No selector is squeezed below a readable width, even at 420 px.
+- **Large screens**: the workspace stops stretching. It is centred and capped at 1800 px (`Math.min(parent.width, root.content-max-width)` with `x: (parent.width - self.width) / 2`), and the Source column keeps a comfortable width (260 to 440 px) instead of following the window. The monospace result lines stay readable instead of running across the whole screen.
 
 The Result panel absorbs the extra vertical space, and the Databases and Tables lists show a scrollbar only when their content overflows.
 
 The controls shared by both layouts (table selectors, format selector, max-links box) are defined once in `main.slint` (`TableSelector`, `FormatSelector`, `MaxLinksBox`) so the wide and the narrow layouts cannot drift apart.
+
+### A Slint constraint worth knowing
+
+Slint sizes the window from the *layout info* of its content. Binding a width, a padding or a
+`font-size` to `root.width` therefore closes a loop on the window width, which the compiler reports
+as:
+
+```text
+warning: The binding for the property 'font-size' is part of a binding loop
+(root.wide -> font-size -> layoutinfo-h -> ... -> root.layoutinfo-h -> root.wide).
+         This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime
+```
+
+So `root.width` may only drive **structural** choices (the `if root.compact` branches) and
+**vertical** sizes (`header-height`). Paddings and widths are constants declared inside each branch.
+A Node test (`never derives a horizontal size, padding or font from the window width`) locks this
+rule in place.
 
 ## Recommended flow
 

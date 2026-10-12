@@ -19,7 +19,8 @@
   between `dressshot_schema.sql` and the `dressshot_seed_fk_edges.json` fixture.
 - **Improve the desktop layout on small and large screens.**
   Minimum window lowered to 420 x 380, Path panel stacked below 900 px, workspace centred and capped
-  at 1800 px above 1500 px, adaptive typography and margins.
+  at 1800 px, shorter header on a short window — with no Slint `binding loop`: no horizontal size,
+  padding or `font-size` depends on the window width.
 
 ## Medium term
 
