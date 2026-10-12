@@ -137,35 +137,46 @@ Usage: schema-pathfinder <command> [options]
 
 Commands:
   tables                   Liste les tables (fixture, SQL ou métadonnées PostgreSQL)
-  databases, dbs           Liste les bases PostgreSQL
-  schemas                  Liste les schémas de la base sélectionnée
+  schemas                  Liste les schémas PostgreSQL de la base sélectionnée
+  databases                Liste les bases PostgreSQL (alias : dbs)
   tree                     Affiche bases, schémas, tables et FK visibles
-  fixture                  Génère la fixture JSON depuis la source choisie
   path <source> <target>   Liste les chemins FK entre deux tables, du plus simple au plus complexe
+  fixture                  Génère la fixture JSON depuis la source choisie
+  help [command]           Affiche l'aide générale ou celle d'une commande
+  version                  Affiche la version
 
 Options:
-  --tables | --databases,--dbs | --schemas | --tree   raccourcis de commande
-  --database-url <url>     lit les métadonnées depuis cette connexion PostgreSQL
   --fixture <path>         lit les FK depuis une fixture JSON
   --sql <path>             lit un DDL PostgreSQL et le convertit en métadonnées
-  --max-links <n>          nombre max de liens FK par chemin listé (défaut 5)
-  --format <fmt>           text | equation | sql | mermaid | json
+  --database-url <url>     lit les métadonnées depuis cette connexion PostgreSQL
+  --max-links <n>          nombre max de liens FK par chemin listé (défaut 5, plafond 8)
+  --format <fmt>           text | equation | json | sql | mermaid
   -h, --help               affiche l'aide
+  -V, --version            affiche la version
+
+Legacy flags (compatibilité) :
+  --tables, --schemas, --tree, --databases, --dbs
 
 Environment:
   DATABASE_URL             chaîne de connexion utilisée si aucune source explicite n'est fournie
+
+Exit codes:
+  0 succès · 1 erreur d'exécution · 2 erreur d'usage
 ```
+
+Les options globales sont acceptées avant ou après la commande, et une seule
+source explicite peut être fournie à la fois.
 
 Exemples :
 
 ```bash
 # Lister les tables d'une fixture
-schema-pathfinder --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
+schema-pathfinder tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
 
 # Introspection d'une base PostgreSQL live
-schema-pathfinder --tree     --database-url postgres://readonly:secret@localhost:5432/postgres
-schema-pathfinder --schemas  --database-url postgres://readonly:secret@localhost:5432/postgres
-schema-pathfinder --databases --database-url postgres://readonly:secret@localhost:5432/postgres
+schema-pathfinder tree      --database-url postgres://readonly:secret@localhost:5432/postgres
+schema-pathfinder schemas   --database-url postgres://readonly:secret@localhost:5432/postgres
+schema-pathfinder databases --database-url postgres://readonly:secret@localhost:5432/postgres
 
 # Chemins entre deux tables, limités à 3 liens, en SQL
 schema-pathfinder path ClothingItem User --max-links 3 --format sql \
@@ -173,6 +184,9 @@ schema-pathfinder path ClothingItem User --max-links 3 --format sql \
 
 # Convertir un DDL SQL en fixture JSON
 schema-pathfinder fixture --sql fixtures/postgres/dressshot_schema.sql
+
+# Aide d'une commande précise
+schema-pathfinder help path
 ```
 
 ## API web
@@ -201,7 +215,8 @@ schema-pathfinder/
 │   ├── cli-rust/            # Cœur Rust : moteur, CLI et API
 │   │   ├── src/
 │   │   │   ├── pathfinder_core.rs        # moteur partagé (graphe, scoring, rendus)
-│   │   │   ├── main.rs                   # binaire CLI (lexopt)
+│   │   │   ├── cli.rs                    # surface CLI pure : commandes, options, aide
+│   │   │   ├── main.rs                   # binaire CLI (dispatch + codes de sortie)
 │   │   │   ├── postgres_sql_metadata.rs  # parsing DDL PostgreSQL
 │   │   │   └── bin/schema-pathfinder-api.rs  # API HTTP (tiny_http)
 │   │   └── tests/           # tests d'intégration Rust (API publique)
@@ -224,10 +239,10 @@ Le principe directeur : **une seule implémentation de la logique métier en Rus
 
 ```bash
 pnpm install                                   # dépendances de l'espace de travail
-pnpm test                                       # tests Node (66)
+pnpm test                                       # tests Node
 pnpm lint                                        # scaffold + contrats
 pnpm typecheck                                    # vérification de structure
-cargo test -p schema-pathfinder                   # tests Rust (65)
+cargo test --workspace                            # tests Rust (unitaires, intégration, doctests)
 cargo build --release -p schema-pathfinder        # build optimisé du CLI
 ```
 
