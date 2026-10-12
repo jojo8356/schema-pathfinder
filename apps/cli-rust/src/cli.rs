@@ -199,14 +199,14 @@ where
             }
             Long("schemas") => flag_command = Some(set_flag_command(flag_command, "schemas")?),
             Long("tree") => flag_command = Some(set_flag_command(flag_command, "tree")?),
-            Long("format") => format = parse_format(&option_value(&mut parser, "--format")?),
+            Long("format") => format = parse_format(&option_value(&mut parser, "--format")?)?,
             Long("fixture") => fixture = Some(option_value(&mut parser, "--fixture")?),
             Long("sql") => sql = Some(option_value(&mut parser, "--sql")?),
             Long("database-url") => {
                 database_url = Some(option_value(&mut parser, "--database-url")?)
             }
             Long("max-links") => {
-                max_links = parse_max_links(&option_value(&mut parser, "--max-links")?)
+                max_links = parse_max_links(&option_value(&mut parser, "--max-links")?)?
             }
             Value(value) => positionals.push(
                 value.into_string().map_err(|raw| {

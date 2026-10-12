@@ -28,14 +28,24 @@ L'UI web utilise React et appelle l'API Rust. Elle est utile quand on veut une i
 La fenêtre Slint ne fixe plus `width` et `height` : dans Slint, poser ces deux propriétés sur un `Window` verrouille la fenêtre à une taille fixe et le gestionnaire de fenêtres refuse tout redimensionnement. Seules les contraintes de layout sont déclarées :
 
 - `preferred-width` / `preferred-height` : taille d'ouverture (1280 x 820).
-- `min-width` / `min-height` : taille minimale utilisable (560 x 460).
-- Les panneaux utilisent `min-*`, `preferred-*` et `*-stretch` au lieu de hauteurs et largeurs codées en dur.
+- `min-width` / `min-height` : taille minimale utilisable (420 x 380), assez petite pour un demi-écran ou une fenêtre courte.
+- Les panneaux utilisent `min-*`, `preferred-*` et `*-stretch` au lieu de hauteurs et largeurs codées en dur, avec `min-width: 0px` pour pouvoir se réduire.
 
-Le layout est responsive :
+Le layout est responsive et suit deux seuils déclarés sur la fenêtre :
 
-- au-dessus de 900 px de large, la colonne Source reste à gauche et les panneaux Path et Result occupent la largeur restante ;
-- en dessous de 900 px, l'interface bascule sur une seule colonne défilante afin qu'aucun contrôle ne soit tronqué ;
-- le panneau Result absorbe l'espace vertical supplémentaire, les listes Databases et Tables affichent une barre de défilement uniquement quand leur contenu dépasse.
+```slint
+property <bool> compact: root.width < 900px;
+property <bool> wide: root.width >= 1500px;
+```
+
+- **Au-dessus de 900 px** : la colonne Source reste à gauche et les panneaux Path et Result occupent la largeur restante. Les trois sélecteurs Schema / From table / To table sont alignés en colonnes, et Format / Max links / Find path tiennent sur une seule ligne.
+- **En dessous de 900 px** (`compact`) : l'interface bascule sur une seule colonne défilante, et chaque contrôle du panneau Path passe sur sa propre ligne avec son libellé à gauche. Aucun sélecteur n'est compressé sous une largeur lisible, même à 420 px.
+- **Au-dessus de 1500 px** (`wide`) : l'espace de travail cesse de s'étirer. Il est centré et plafonné à 1800 px (`content-max-width`), la colonne Source s'élargit (jusqu'à 460 px) et la typographie passe de 13 px à 15 px. Les lignes monospace du résultat restent lisibles au lieu de traverser tout l'écran.
+- Les marges suivent le même principe (`gutter` : 12 px en compact, 16 px en normal, 28 px en wide).
+
+Le panneau Result absorbe l'espace vertical supplémentaire, et les listes Databases et Tables affichent une barre de défilement uniquement quand leur contenu dépasse.
+
+Les contrôles partagés par les deux dispositions (sélecteurs de table, sélecteur de format, curseur Max links) sont définis une seule fois dans `main.slint` (`TableSelector`, `FormatSelector`, `MaxLinksBox`) pour que le layout large et le layout étroit ne puissent pas diverger.
 
 ## Parcours conseillé
 
