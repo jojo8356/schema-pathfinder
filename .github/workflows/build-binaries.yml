@@ -22,9 +22,61 @@ env:
   APPIMAGE_RUNTIME_FILE: /tmp/runtime-x86_64
 
 jobs:
+  tests:
+    name: Node and Rust tests
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            libfontconfig1-dev \
+            libx11-xcb-dev \
+            libxcb1-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libwayland-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        run: npm install --global pnpm@11.1.2
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check desktop UI contract
+        run: node --test tests/desktop_ui.test.mjs
+
+      - name: Run Node tests
+        run: node --test tests/*.test.mjs
+
+      - name: Check scaffold and contract fixtures
+        run: pnpm lint
+
+      - name: Run Rust tests
+        run: cargo test --locked --workspace
+
+      - name: Build the API binary
+        run: cargo build --locked -p schema-pathfinder --features api --bin schema-pathfinder-api
+
   linux-packages:
     name: Linux binaries, Debian packages and AppImages
     runs-on: ubuntu-22.04
+    needs: tests
 
     steps:
       - name: Check out repository

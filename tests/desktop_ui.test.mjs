@@ -70,16 +70,26 @@ describe("desktop UI", () => {
     assert.equal(pathSection.includes('text: "Schema";'), true);
     assert.equal(pathSection.includes('text: "From table";'), true);
     assert.equal(pathSection.includes('text: "To table";'), true);
-    assert.equal(pathSection.includes("model: root.schema-options;"), true);
-    assert.equal(pathSection.includes("model: root.table-options;"), true);
+    assert.equal(pathSection.includes("options: root.schema-options;"), true);
+    assert.equal(pathSection.includes("options: root.table-options;"), true);
     assert.equal(pathSection.includes("root.select-schema(value);"), true);
-    assert.equal(pathSection.includes("root.source-table = value;"), true);
-    assert.equal(pathSection.includes("root.target-table = value;"), true);
+    assert.equal(pathSection.includes("value <=> root.source-table;"), true);
+    assert.equal(pathSection.includes("value <=> root.target-table;"), true);
     assert.doesNotMatch(pathSection, /LineEdit/);
   });
 
+  it("defines the drop-downs once and reuses them in both layouts", () => {
+    assert.match(desktopUi, /component TableSelector inherits ComboBox \{/);
+    assert.match(desktopUi, /component FormatSelector inherits ComboBox \{/);
+    assert.match(desktopUi, /component MaxLinksBox inherits SpinBox \{/);
+    // Three selectors (schema, from, to) in each of the two layouts.
+    assert.equal(countMatches(desktopUi, /TableSelector \{/g), 6);
+    assert.equal(countMatches(desktopUi, /FormatSelector \{/g), 2);
+    assert.equal(countMatches(desktopUi, /MaxLinksBox \{/g), 2);
+  });
+
   it("keeps list scrollbars hidden until content overflows", () => {
-    const listSection = segmentBetween(desktopUi, "component MonospaceList inherits ScrollView {", "component SourcePanel");
+    const listSection = segmentBetween(desktopUi, "component MonospaceList inherits ScrollView {", "component TableSelector");
 
     assert.match(listSection, /vertical-scrollbar-policy: ScrollBarPolicy\.as-needed/);
     assert.match(listSection, /horizontal-scrollbar-policy: ScrollBarPolicy\.always-off/);
@@ -99,10 +109,51 @@ describe("desktop UI", () => {
   });
 
   it("adapts the layout to the window width", () => {
-    assert.match(desktopUi, /property <bool> compact: root\.width < \d+px;/);
-    assert.match(desktopUi, /if !root\.compact: HorizontalLayout \{/);
+    assert.match(desktopUi, /property <bool> compact: root\.width < 900px;/);
+    assert.match(desktopUi, /property <bool> wide: root\.width >= 1500px;/);
+    assert.match(desktopUi, /if !root\.compact: Rectangle \{/);
     assert.match(desktopUi, /if root\.compact: ScrollView \{/);
     assert.match(desktopUi, /viewport-height: Math\.max\(self\.visible-height, \d+px\);/);
+  });
+
+  it("keeps the workspace usable on a small window", () => {
+    const windowProperties = windowSection();
+
+    assert.match(windowProperties, /min-width: 420px;/);
+    assert.match(windowProperties, /min-height: 380px;/);
+
+    // Every panel must be able to shrink, otherwise a narrow window clips them.
+    assert.doesNotMatch(desktopUi, /min-width: 320px/);
+    assert.doesNotMatch(desktopUi, /min-width: 280px/);
+
+    // Narrow layout stacks the selectors, one per line.
+    const stackedSection = segmentBetween(
+      desktopUi,
+      "// Narrow screens: one selector per line",
+      "// Wide screens: format, max links"
+    );
+
+    assert.equal(countMatches(stackedSection, /TableSelector \{/g), 3);
+    assert.equal(countMatches(stackedSection, /Row \{/g), 3);
+    assert.doesNotMatch(stackedSection, /min-width: 120px/);
+  });
+
+  it("caps and centres the workspace on large screens", () => {
+    assert.match(desktopUi, /property <length> content-max-width: \d+px;/);
+    assert.match(desktopUi, /width: Math\.min\(parent\.width, root\.content-max-width\);/);
+    assert.match(desktopUi, /x: \(parent\.width - self\.width\) \/ 2;/);
+    assert.match(desktopUi, /max-width: root\.wide \? 460px : 380px;/);
+  });
+
+  it("scales typography and gutters with the window size", () => {
+    assert.match(desktopUi, /property <length> base-font: root\.wide \? 15px : 13px;/);
+    assert.match(
+      desktopUi,
+      /property <length> gutter: root\.compact \? 12px : \(root\.wide \? 28px : 16px\);/
+    );
+    assert.match(desktopUi, /font-size: root\.base-font;/);
+    assert.match(desktopUi, /padding: root\.gutter;/);
+    assert.match(desktopUi, /base-font: root\.base-font;/);
   });
 
   it("lets the panels stretch instead of hard coding panel sizes", () => {
