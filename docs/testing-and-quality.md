@@ -3,7 +3,7 @@
 ## Commandes principales
 
 ```bash
-pnpm test                    # 76 tests Node
+pnpm test                    # 78 tests Node
 pnpm typecheck
 pnpm lint
 cargo test --workspace       # 152 tests Rust (unitaires, intégration, doctests)
