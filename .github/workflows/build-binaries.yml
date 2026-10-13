@@ -175,7 +175,9 @@ jobs:
       - name: Verify AppImages
         run: |
           chmod +x dist/*.AppImage
-          ./dist/schema-pathfinder-*-x86_64.AppImage --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
+          # `schema-pathfinder-*` also matches the desktop AppImage; `[0-9]*`
+          # after the name keeps only the CLI artifact.
+          ./dist/schema-pathfinder-[0-9]*-x86_64.AppImage --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
           file dist/schema-pathfinder-desktop-*-x86_64.AppImage
 
       - name: Collect release artifacts
