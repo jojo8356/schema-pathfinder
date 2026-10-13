@@ -18,9 +18,10 @@
   (`tests/sql_metadata.rs`) plus 12 white-box unit tests in the module, and a direct comparison
   between `dressshot_schema.sql` and the `dressshot_seed_fk_edges.json` fixture.
 - **Improve the desktop layout on small and large screens.**
-  Minimum window lowered to 420 x 380, Path panel stacked below 900 px, workspace centred and capped
-  at 1800 px, shorter header on a short window — with no Slint `binding loop`: no horizontal size,
-  padding or `font-size` depends on the window width.
+  One fluid layout: the Path panel puts one control per line, the Source column is bounded
+  (240 / 340 / 440 px) and gives up space first, the result keeps a 340 px floor, the workspace is
+  centred and capped at 1800 px, minimum window 640 x 520. Zero Slint `binding loop`: the layout
+  never reads the window geometry and uses no ternary expression.
 
 ## Medium term
 
