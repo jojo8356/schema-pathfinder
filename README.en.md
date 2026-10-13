@@ -4,14 +4,14 @@
 
 **Instantly find how to connect two PostgreSQL tables through their foreign keys.**
 
-Rust CLI · Slint desktop UI · React web UI · Rust API · fixtures & contract tests
+Rust CLI · Slint desktop UI · React web UI · Rust API · MCP · fixtures & contract tests
 
 [![CI](https://github.com/jojo8356/schema-pathfinder/actions/workflows/build-binaries.yml/badge.svg)](https://github.com/jojo8356/schema-pathfinder/actions/workflows/build-binaries.yml)
 ![Rust](https://img.shields.io/badge/Rust-stable-000000?logo=rust&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-%3E%3D22-339933?logo=nodedotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-metadata%20only-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-228%20(76%20Node%20%2B%20152%20Rust)-brightgreen)
+![Tests](https://img.shields.io/badge/tests-231%20(79%20Node%20%2B%20152%20Rust)-brightgreen)
 ![Status](https://img.shields.io/badge/version-0.1.4-blue)
 
 </div>
@@ -117,6 +117,7 @@ public.SellerProfile.userId = public.User.id
 | **Desktop UI** | Rust, Slint                      | Native local app, with no server or backend URL.        |
 | **Web UI**     | React 19, Vite, Lucide           | Visual exploration in the browser.                      |
 | **Web API**    | Rust, `tiny_http`                | Lightweight HTTP server that powers the web UI.         |
+| **MCP**        | Python 3 stdlib, stdio JSON-RPC  | AI tools (`apps/mcp/server.py`, [docs/mcp.en.md](docs/mcp.en.md)). |
 | **Contracts**  | JSON fixtures + Node/Rust tests  | Stable validation of formats and behaviors.             |
 
 ## Output formats
@@ -247,7 +248,7 @@ cargo build --release -p schema-pathfinder        # optimized CLI build
 
 ## Testing and quality
 
-The project is covered by **228 tests**: **76 Node tests** (behaviors and
+The project is covered by **231 tests**: **79 Node tests** (behaviors and
 contracts) and **152 Rust tests** (49 unit tests, 100 integration tests — including 24 that drive the
 compiled CLI binary and 33 on the SQL parser — and 3 doctests).
 
