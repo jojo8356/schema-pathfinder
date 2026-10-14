@@ -22,9 +22,78 @@ env:
   APPIMAGE_RUNTIME_FILE: /tmp/runtime-x86_64
 
 jobs:
+  tests:
+    name: Node and Rust tests
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            libfontconfig1-dev \
+            libx11-xcb-dev \
+            libxcb1-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libwayland-dev
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        run: npm install --global pnpm@11.1.2
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check desktop UI contract
+        run: node --test tests/desktop_ui.test.mjs
+
+      - name: Run Node tests
+        run: node --test tests/*.test.mjs
+
+      - name: Check scaffold and contract fixtures
+        run: pnpm lint
+
+      - name: Run Rust tests
+        run: cargo test --locked --workspace
+
+      # The Slint compiler only warns about a binding loop, but such a loop "may
+      # cause panic at runtime", so treat it as a failure. Touching the .slint
+      # file forces slint-build to run again and re-emit its warnings.
+      - name: Check the desktop UI for Slint binding loops
+        shell: bash
+        run: |
+          set -o pipefail
+          touch apps/desktop/ui/main.slint
+          cargo build --locked -p schema-pathfinder-desktop 2>&1 | tee desktop-build.log
+          if grep --quiet "binding loop" desktop-build.log; then
+            echo "::error::Slint reports a binding loop in apps/desktop/ui/main.slint"
+            grep "binding loop" desktop-build.log | head --lines 4 | while read -r line; do
+              echo "::error title=Slint binding loop::${line}"
+            done
+            exit 1
+          fi
+
+      - name: Build the API binary
+        run: cargo build --locked -p schema-pathfinder --features api --bin schema-pathfinder-api
+
   linux-packages:
     name: Linux binaries, Debian packages and AppImages
     runs-on: ubuntu-22.04
+    needs: tests
 
     steps:
       - name: Check out repository
@@ -106,7 +175,9 @@ jobs:
       - name: Verify AppImages
         run: |
           chmod +x dist/*.AppImage
-          ./dist/schema-pathfinder-*-x86_64.AppImage --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
+          # `schema-pathfinder-*` also matches the desktop AppImage; `[0-9]*`
+          # after the name keeps only the CLI artifact.
+          ./dist/schema-pathfinder-[0-9]*-x86_64.AppImage --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
           file dist/schema-pathfinder-desktop-*-x86_64.AppImage
 
       - name: Collect release artifacts

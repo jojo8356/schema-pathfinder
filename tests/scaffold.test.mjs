@@ -21,9 +21,15 @@ describe("schema-pathfinder scaffold", () => {
 
   it("keeps DressShot validation as fixture data, not project ownership", () => {
     const readme = readFileSync("README.md", "utf8");
+    const readmeEn = readFileSync("README.en.md", "utf8");
     const fixture = readFileSync("fixtures/postgres/dressshot_seed_fk_edges.json", "utf8");
 
-    assert.match(readme, /Standalone PostgreSQL schema pathfinder/);
+    // The tool is presented as a standalone product, and the DressShot schema
+    // only appears under fixtures/ as example data.
+    assert.match(readme, /outil autonome/);
+    assert.match(readmeEn, /standalone tool/);
+    assert.match(readme, /fixtures\/postgres\/\s+# schémas d'exemple/);
+    assert.doesNotMatch(readme, /DressShot/);
     assert.match(fixture, /ClothingItem/);
   });
 });

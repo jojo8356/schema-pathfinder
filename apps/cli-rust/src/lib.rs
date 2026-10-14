@@ -51,3 +51,9 @@
 /// CLI, the desktop app and the web API.
 pub mod pathfinder_core;
 mod postgres_sql_metadata;
+
+/// Command-line surface: command names, global options and help texts.
+///
+/// Parsing is pure (no environment access, no I/O, no printing), so the whole
+/// terminal contract can be unit-tested without spawning the binary.
+pub mod cli;

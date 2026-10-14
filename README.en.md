@@ -4,15 +4,15 @@
 
 **Instantly find how to connect two PostgreSQL tables through their foreign keys.**
 
-Rust CLI · Slint desktop UI · React web UI · Rust API · fixtures & contract tests
+Rust CLI · Slint desktop UI · React web UI · Rust API · MCP · fixtures & contract tests
 
 [![CI](https://github.com/jojo8356/schema-pathfinder/actions/workflows/build-binaries.yml/badge.svg)](https://github.com/jojo8356/schema-pathfinder/actions/workflows/build-binaries.yml)
 ![Rust](https://img.shields.io/badge/Rust-stable-000000?logo=rust&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-%3E%3D22-339933?logo=nodedotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-metadata%20only-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-131%20(66%20Node%20%2B%2065%20Rust)-brightgreen)
-![Status](https://img.shields.io/badge/version-0.1.3-blue)
+![Tests](https://img.shields.io/badge/tests-231%20(79%20Node%20%2B%20152%20Rust)-brightgreen)
+![Status](https://img.shields.io/badge/version-0.1.4-blue)
 
 </div>
 
@@ -117,6 +117,7 @@ public.SellerProfile.userId = public.User.id
 | **Desktop UI** | Rust, Slint                      | Native local app, with no server or backend URL.        |
 | **Web UI**     | React 19, Vite, Lucide           | Visual exploration in the browser.                      |
 | **Web API**    | Rust, `tiny_http`                | Lightweight HTTP server that powers the web UI.         |
+| **MCP**        | Python 3 stdlib, stdio JSON-RPC  | AI tools (`apps/mcp/server.py`, [docs/mcp.en.md](docs/mcp.en.md)). |
 | **Contracts**  | JSON fixtures + Node/Rust tests  | Stable validation of formats and behaviors.             |
 
 ## Output formats
@@ -138,35 +139,46 @@ Usage: schema-pathfinder <command> [options]
 
 Commands:
   tables                   List tables (fixture, SQL, or PostgreSQL metadata)
-  databases, dbs           List PostgreSQL databases
-  schemas                  List schemas of the selected database
+  schemas                  List PostgreSQL schemas of the selected database
+  databases                List PostgreSQL databases (alias: dbs)
   tree                     Print visible databases, schemas, tables, and FKs
-  fixture                  Generate the JSON fixture from the chosen source
   path <source> <target>   List FK paths between two tables, simplest first
+  fixture                  Generate the JSON fixture from the chosen source
+  help [command]           Display general help, or the help of one command
+  version                  Print the version
 
 Options:
-  --tables | --databases,--dbs | --schemas | --tree   command shortcuts
-  --database-url <url>     read metadata from this PostgreSQL connection
   --fixture <path>         read FKs from a JSON fixture
   --sql <path>             read a PostgreSQL DDL and convert it to metadata
-  --max-links <n>          max number of FK links per listed path (default 5)
-  --format <fmt>           text | equation | sql | mermaid | json
+  --database-url <url>     read metadata from this PostgreSQL connection
+  --max-links <n>          max number of FK links per listed path (default 5, capped at 8)
+  --format <fmt>           text | equation | json | sql | mermaid
   -h, --help               display help
+  -V, --version            print the version
+
+Legacy flags (compatibility):
+  --tables, --schemas, --tree, --databases, --dbs
 
 Environment:
   DATABASE_URL             connection string used when no explicit source is provided
+
+Exit codes:
+  0 success - 1 runtime error - 2 usage error
 ```
+
+Global options are accepted before or after the command, and only one explicit
+source may be given at a time.
 
 Examples:
 
 ```bash
 # List the tables of a fixture
-schema-pathfinder --tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
+schema-pathfinder tables --fixture fixtures/postgres/dressshot_seed_fk_edges.json
 
 # Introspect a live PostgreSQL database
-schema-pathfinder --tree      --database-url postgres://readonly:secret@localhost:5432/postgres
-schema-pathfinder --schemas   --database-url postgres://readonly:secret@localhost:5432/postgres
-schema-pathfinder --databases --database-url postgres://readonly:secret@localhost:5432/postgres
+schema-pathfinder tree      --database-url postgres://readonly:secret@localhost:5432/postgres
+schema-pathfinder schemas   --database-url postgres://readonly:secret@localhost:5432/postgres
+schema-pathfinder databases --database-url postgres://readonly:secret@localhost:5432/postgres
 
 # Paths between two tables, capped at 3 links, in SQL
 schema-pathfinder path ClothingItem User --max-links 3 --format sql \
@@ -202,7 +214,8 @@ schema-pathfinder/
 │   ├── cli-rust/            # Rust core: engine, CLI, and API
 │   │   ├── src/
 │   │   │   ├── pathfinder_core.rs        # shared engine (graph, scoring, renderers)
-│   │   │   ├── main.rs                   # CLI binary (lexopt)
+│   │   │   ├── cli.rs                    # pure CLI surface: commands, options, help
+│   │   │   ├── main.rs                   # CLI binary (dispatch + exit codes)
 │   │   │   ├── postgres_sql_metadata.rs  # PostgreSQL DDL parsing
 │   │   │   └── bin/schema-pathfinder-api.rs  # HTTP API (tiny_http)
 │   │   └── tests/           # Rust integration tests (public API)
@@ -226,17 +239,18 @@ stability of the formats.
 
 ```bash
 pnpm install                                   # workspace dependencies
-pnpm test                                       # Node tests (66)
+pnpm test                                       # Node tests
 pnpm lint                                        # scaffold + contracts
 pnpm typecheck                                    # structure check
-cargo test -p schema-pathfinder                   # Rust tests (65)
+cargo test --workspace                            # Rust tests (unit, integration, doctests)
 cargo build --release -p schema-pathfinder        # optimized CLI build
 ```
 
 ## Testing and quality
 
-The project is covered by **131 tests**: **66 Node tests** (behaviors and
-contracts) and **65 Rust tests** (unit + integration).
+The project is covered by **231 tests**: **79 Node tests** (behaviors and
+contracts) and **152 Rust tests** (49 unit tests, 100 integration tests — including 24 that drive the
+compiled CLI binary and 33 on the SQL parser — and 3 doctests).
 
 - Rust unit tests: `#[cfg(test)] mod tests` inside the modules.
 - Rust integration tests: one file per domain under `apps/cli-rust/tests/`
@@ -273,21 +287,21 @@ node scripts/build_desktop_appimage.mjs  # desktop .AppImage
 
 The artifacts are produced in `dist/`:
 
-- `schema-pathfinder_0.1.3_amd64.deb`
-- `schema-pathfinder-0.1.3-x86_64.AppImage`
-- `schema-pathfinder-desktop_0.1.3_amd64.deb`
-- `schema-pathfinder-desktop-0.1.3-x86_64.AppImage`
+- `schema-pathfinder_0.1.4_amd64.deb`
+- `schema-pathfinder-0.1.4-x86_64.AppImage`
+- `schema-pathfinder-desktop_0.1.4_amd64.deb`
+- `schema-pathfinder-desktop-0.1.4-x86_64.AppImage`
 
 Installing from a release (artifacts built and verified by CI, with `SHA256SUMS`):
 
 ```bash
 # Debian packages
-sudo apt-get install ./schema-pathfinder_0.1.3_amd64.deb
-sudo apt-get install ./schema-pathfinder-desktop_0.1.3_amd64.deb
+sudo apt-get install ./schema-pathfinder_0.1.4_amd64.deb
+sudo apt-get install ./schema-pathfinder-desktop_0.1.4_amd64.deb
 
 # or AppImage, no installation
-chmod +x schema-pathfinder-desktop-0.1.3-x86_64.AppImage
-./schema-pathfinder-desktop-0.1.3-x86_64.AppImage
+chmod +x schema-pathfinder-desktop-0.1.4-x86_64.AppImage
+./schema-pathfinder-desktop-0.1.4-x86_64.AppImage
 ```
 
 ## Security and privacy

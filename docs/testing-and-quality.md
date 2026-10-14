@@ -3,10 +3,10 @@
 ## Commandes principales
 
 ```bash
-pnpm test
+pnpm test                    # 78 tests Node
 pnpm typecheck
 pnpm lint
-cargo test -p schema-pathfinder
+cargo test --workspace       # 152 tests Rust (unitaires, intégration, doctests)
 cargo build --release -p schema-pathfinder --bin schema-pathfinder
 cargo build --release -p schema-pathfinder --features api --bin schema-pathfinder-api
 ```
@@ -15,10 +15,25 @@ cargo build --release -p schema-pathfinder --features api --bin schema-pathfinde
 
 - Contrats de fixtures JSON.
 - Rendus de chemins en formats texte, equation, SQL, Mermaid et JSON.
-- Parsing de SQL PostgreSQL vers métadonnées.
-- Commandes CLI principales.
+- Parsing de SQL PostgreSQL vers métadonnées : 33 tests d'intégration
+  (`apps/cli-rust/tests/sql_metadata.rs`) et 12 tests unitaires blancs dans
+  `postgres_sql_metadata.rs` (découpage des statements, commentaires, corps
+  dollar-quotés, clés composées, `DROP CONSTRAINT`).
+- Surface CLI : parsing pur dans `src/cli.rs` (23 tests unitaires) et 24 tests de
+  bout en bout qui exécutent le binaire compilé via `CARGO_BIN_EXE_schema-pathfinder`
+  et vérifient stdout, stderr et le code de sortie (`0`, `1`, `2`).
+- Contrat de l'UI desktop (`tests/desktop_ui.test.mjs`) : structure responsive,
+  absence de taille figée, et interdiction de lier une taille horizontale, un
+  padding ou un `font-size` à `root.width` (boucle de binding Slint).
 - Scaffolding attendu du monorepo.
 - Comportements Rust du coeur pathfinder.
+
+## Portes de qualité en CI
+
+Le job `Node and Rust tests` de `.github/workflows/build-binaries.yml` exécute, dans l'ordre :
+le contrat UI desktop, les tests Node, `pnpm lint`, `cargo test --workspace`, une vérification
+d'absence de `binding loop` Slint sur l'UI desktop, puis le build du binaire API. Le job de
+packaging (`.deb`, AppImage) dépend de ce job : aucun paquet n'est produit si les tests échouent.
 
 ## Stratégie qualité
 

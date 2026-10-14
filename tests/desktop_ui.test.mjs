@@ -19,6 +19,12 @@ function windowSection() {
   return segmentBetween(desktopUi, "export component AppWindow inherits Window {", "VerticalLayout {");
 }
 
+// The guards below inspect code, not prose: the .slint file documents the rules
+// it follows, and those comments quote the forbidden bindings.
+function withoutComments(source) {
+  return source.replace(/\/\/[^\n]*/g, "");
+}
+
 function countMatches(source, pattern) {
   const matches = source.match(pattern);
   if (matches === null) {
@@ -70,16 +76,26 @@ describe("desktop UI", () => {
     assert.equal(pathSection.includes('text: "Schema";'), true);
     assert.equal(pathSection.includes('text: "From table";'), true);
     assert.equal(pathSection.includes('text: "To table";'), true);
-    assert.equal(pathSection.includes("model: root.schema-options;"), true);
-    assert.equal(pathSection.includes("model: root.table-options;"), true);
+    assert.equal(pathSection.includes("options: root.schema-options;"), true);
+    assert.equal(pathSection.includes("options: root.table-options;"), true);
     assert.equal(pathSection.includes("root.select-schema(value);"), true);
-    assert.equal(pathSection.includes("root.source-table = value;"), true);
-    assert.equal(pathSection.includes("root.target-table = value;"), true);
+    assert.equal(pathSection.includes("value <=> root.source-table;"), true);
+    assert.equal(pathSection.includes("value <=> root.target-table;"), true);
     assert.doesNotMatch(pathSection, /LineEdit/);
   });
 
+  it("defines the drop-downs once and reuses them in the path panel", () => {
+    assert.match(desktopUi, /component TableSelector inherits ComboBox \{/);
+    assert.match(desktopUi, /component FormatSelector inherits ComboBox \{/);
+    assert.match(desktopUi, /component MaxLinksBox inherits SpinBox \{/);
+    // Three selectors (schema, from, to) in the single path form.
+    assert.equal(countMatches(withoutComments(desktopUi), /TableSelector \{/g), 3);
+    assert.equal(countMatches(withoutComments(desktopUi), /FormatSelector \{/g), 1);
+    assert.equal(countMatches(withoutComments(desktopUi), /MaxLinksBox \{/g), 1);
+  });
+
   it("keeps list scrollbars hidden until content overflows", () => {
-    const listSection = segmentBetween(desktopUi, "component MonospaceList inherits ScrollView {", "component SourcePanel");
+    const listSection = segmentBetween(desktopUi, "component MonospaceList inherits ScrollView {", "component TableSelector");
 
     assert.match(listSection, /vertical-scrollbar-policy: ScrollBarPolicy\.as-needed/);
     assert.match(listSection, /horizontal-scrollbar-policy: ScrollBarPolicy\.always-off/);
@@ -98,11 +114,113 @@ describe("desktop UI", () => {
     assert.doesNotMatch(desktopMain, /set_maximized/);
   });
 
-  it("adapts the layout to the window width", () => {
-    assert.match(desktopUi, /property <bool> compact: root\.width < \d+px;/);
-    assert.match(desktopUi, /if !root\.compact: HorizontalLayout \{/);
-    assert.match(desktopUi, /if root\.compact: ScrollView \{/);
-    assert.match(desktopUi, /viewport-height: Math\.max\(self\.visible-height, \d+px\);/);
+  it("adapts to every window size through layout constraints only", () => {
+    // A resizable Slint window is sized from the layout info of its content, so
+    // a width breakpoint inside the layout closes a binding loop. The UI adapts
+    // with min/preferred/max widths and stretch factors instead.
+    const layout = withoutComments(desktopUi);
+
+    assert.doesNotMatch(layout, /compact/);
+    assert.doesNotMatch(layout, /if[^{]*width/);
+    assert.match(desktopUi, /min-width: 240px;\s+preferred-width: 340px;\s+max-width: 440px;/);
+
+    // The sidebar keeps its own width; the right column takes whatever is left.
+    const workspace = segmentBetween(desktopUi, "// Workspace:", "output-text <=> root.output-text;");
+    assert.match(workspace, /SourcePanel \{\s+horizontal-stretch: 0;/);
+    assert.match(workspace, /VerticalLayout \{\s+horizontal-stretch: 1;/);
+  });
+
+  it("keeps the workspace usable on a small window", () => {
+    const windowProperties = windowSection();
+
+    // Sidebar 240px + spacing 16px + result column 340px + padding 32px.
+    assert.match(windowProperties, /min-width: 640px;/);
+    // Header 56px + fixed path form 360px + one result block, padding included.
+    assert.match(windowProperties, /min-height: 610px;/);
+
+    assert.match(desktopUi, /min-width: 240px;/);
+    // The result column keeps a floor so the monospace output stays readable
+    // next to the sidebar at the window minimum.
+    assert.match(desktopUi, /min-width: 340px;/);
+
+    // The path form lists one labelled control per row, so it never needs a
+    // narrower variant.
+    const formSection = segmentBetween(desktopUi, 'text: "Path";', 'text: "Find path";');
+
+    assert.equal(countMatches(formSection, /TableSelector \{/g), 3);
+    assert.equal(countMatches(formSection, /width: 110px;/g), 5);
+    assert.equal(countMatches(formSection, /horizontal-stretch: 0;/g), 5);
+  });
+
+  it("keeps Path labels fixed and stretches the inputs", () => {
+    const formSection = segmentBetween(desktopUi, 'text: "Path";', 'text: "Find path";');
+    assert.doesNotMatch(withoutComments(formSection), /GridLayout/);
+    assert.match(formSection, /width: 110px;\s+horizontal-stretch: 0;/);
+  });
+
+  it("lets Path and Result fill leftover window width", () => {
+    const pathPanel = segmentBetween(desktopUi, "component PathPanel inherits Panel {", "component ResultPanel inherits Panel {");
+    assert.doesNotMatch(pathPanel, /max-width: 560px;/);
+    assert.doesNotMatch(pathPanel, /max-width: 10000px;/);
+    const resultPanel = segmentBetween(desktopUi, "component ResultPanel inherits Panel {", "export component AppWindow");
+    assert.doesNotMatch(resultPanel, /max-width: 10000px;/);
+    assert.doesNotMatch(desktopUi, /content-max-width/);
+    assert.doesNotMatch(desktopUi, /Left spacer/);
+    assert.doesNotMatch(desktopUi, /Right spacer/);
+    assert.match(desktopUi, /preferred-width: 340px;/);
+    assert.match(desktopUi, /max-width: 440px;/);
+  });
+
+  it("never reads the window geometry back into the layout", () => {
+    // Slint sizes the window from the layout info, so any binding - a size, a
+    // padding, a font-size, or even the boolean of an `if` - that reads the
+    // window geometry closes a loop the compiler reports as "binding loop ...
+    // may cause panic at runtime".
+    const layout = withoutComments(desktopUi);
+
+    assert.equal(countMatches(layout, /root\.width/g), 0);
+    assert.equal(countMatches(layout, /root\.height/g), 0);
+    assert.equal(countMatches(layout, /parent\.width/g), 0);
+    assert.equal(countMatches(layout, /parent\.height/g), 0);
+    assert.equal(countMatches(layout, /self\.width/g), 0);
+    assert.equal(countMatches(layout, /self\.height/g), 0);
+  });
+
+  it("keeps fixed-size controls out of the stretch distribution", () => {
+    // With the default `alignment: stretch`, a BoxLayout sizes stretch-0
+    // children at their MINIMUM and, when every factor is 0, shares the leftover
+    // equally - which is what inflated the drop-downs on the first screenshot.
+    const layout = withoutComments(desktopUi);
+
+    // The form panel is exactly as tall as its content floor, so the column's
+    // leftover can only go to the Result panel.
+    assert.match(desktopUi, /min-height: 360px;\s+max-height: 360px;/);
+    assert.match(desktopUi, /ResultPanel \{\s+vertical-stretch: 1;/);
+
+    // Inside the form, rows keep their preferred height instead of sharing
+    // leftover space.
+    const formSection = segmentBetween(
+      desktopUi,
+      "component PathPanel inherits Panel {",
+      "component ResultPanel inherits Panel {"
+    );
+    assert.match(
+      withoutComments(formSection),
+      /VerticalLayout \{\s+padding: 16px;\s+spacing: 12px;\s+alignment: start;/
+    );
+
+    // No layout may opt back into the inflating alignment.
+    assert.doesNotMatch(layout, /alignment: stretch/);
+  });
+
+  it("expresses conditions with blocks instead of ternary expressions", () => {
+    // Slint has no other use for `?`: a ternary hides a branch that the layout
+    // and the reader have to resolve inline, and it is how window-size branches
+    // keep creeping back in. Conditions are written as `if` blocks.
+    const layout = withoutComments(desktopUi);
+
+    assert.equal(countMatches(layout, /\?/g), 0);
+    assert.doesNotMatch(layout, /\w\s*\?\s*[^:]+:/);
   });
 
   it("lets the panels stretch instead of hard coding panel sizes", () => {

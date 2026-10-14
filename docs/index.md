@@ -8,6 +8,7 @@ Ce dossier complète le README avec une documentation orientée employeur, maint
 2. [Architecture](architecture.md) : composants, flux de données, frontières entre CLI, desktop, web et API.
 3. [Référence CLI](cli-reference.md) : commandes disponibles et exemples.
 4. [Référence API](api-reference.md) : endpoints du serveur Rust utilisé par l'UI web.
+4b. [Cahier des charges MCP](mcp.md) : serveur Model Context Protocol (tools IA).
 5. [Guide UI](ui-guide.md) : parcours utilisateur côté web et desktop.
 6. [Déploiement et packaging](deployment.md) : builds, AppImage, Debian, Docker.
 7. [Tests et qualité](testing-and-quality.md) : stratégie de validation et commandes.

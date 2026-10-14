@@ -1,5 +1,7 @@
 import { Button, ComboBox, LineEdit, ScrollView, SpinBox, TextEdit } from "std-widgets.slint";
 
+// ---- Building blocks -------------------------------------------------------
+
 component SectionTitle inherits Text {
     color: #111827;
     font-size: 14px;
@@ -46,6 +48,49 @@ component MonospaceList inherits ScrollView {
     }
 }
 
+// One drop-down that stretches to the space it is given. Defining it once keeps
+// every panel using the same control.
+component TableSelector inherits ComboBox {
+    in property <[string]> options;
+    in-out property <int> index;
+    in-out property <string> value;
+
+    callback picked(string);
+
+    model: root.options;
+    current-index <=> root.index;
+    min-width: 0px;
+    horizontal-stretch: 1;
+
+    selected(picked-value) => {
+        root.value = picked-value;
+        root.picked(picked-value);
+    }
+}
+
+component FormatSelector inherits ComboBox {
+    in-out property <int> index;
+    in-out property <string> value;
+
+    model: ["equation", "sql", "text", "mermaid", "json"];
+    current-index <=> root.index;
+    min-width: 0px;
+    horizontal-stretch: 1;
+
+    selected(picked-value) => {
+        root.value = picked-value;
+    }
+}
+
+component MaxLinksBox inherits SpinBox {
+    minimum: 1;
+    maximum: 8;
+    min-width: 72px;
+    horizontal-stretch: 1;
+}
+
+// ---- Panels ----------------------------------------------------------------
+
 component SourcePanel inherits Panel {
     in-out property <string> source-input-label: "Fixture file";
     in-out property <string> source-input-value;
@@ -57,8 +102,8 @@ component SourcePanel inherits Panel {
     callback select-source(string, string, string);
     callback load-source(string, string);
 
-    min-width: 280px;
-    min-height: 260px;
+    min-width: 0px;
+    min-height: 220px;
 
     VerticalLayout {
         padding: 16px;
@@ -86,7 +131,7 @@ component SourcePanel inherits Panel {
 
             ComboBox {
                 horizontal-stretch: 1;
-                min-width: 110px;
+                min-width: 0px;
                 model: ["fixture", "sql", "postgres"];
                 current-index <=> root.selected-source-index;
                 selected(value) => {
@@ -123,7 +168,7 @@ component SourcePanel inherits Panel {
 
         MonospaceList {
             text: root.databases-text;
-            min-height: 56px;
+            min-height: 48px;
             preferred-height: 92px;
             vertical-stretch: 1;
         }
@@ -147,7 +192,7 @@ component SourcePanel inherits Panel {
 
         MonospaceList {
             text: root.tables-text;
-            min-height: 90px;
+            min-height: 72px;
             preferred-height: 210px;
             vertical-stretch: 3;
         }
@@ -166,111 +211,134 @@ component PathPanel inherits Panel {
     in-out property <string> selected-format: "equation";
     in-out property <int> selected-format-index: 0;
     in-out property <int> max-links: 5;
-    in-out property <bool> compact: false;
 
     callback select-schema(string);
     callback find-path(string, string, string, string, int);
 
-    min-width: 320px;
-    min-height: root.compact ? 250px : 186px;
+    min-width: 0px;
+    // 5 rows of ~34px + 4x10px spacing + title + action row + padding: the
+    // content floor. min = max keeps the panel at exactly this height no matter
+    // how tall the column is, so the leftover can only go to the Result panel.
+    min-height: 360px;
+    max-height: 360px;
 
     VerticalLayout {
         padding: 16px;
         spacing: 12px;
+        // `start` hands every row its PREFERRED height; the default `stretch`
+        // would size stretch-0 rows at their minimum and share any leftover
+        // equally, inflating the drop-downs.
+        alignment: start;
 
         SectionTitle {
             text: "Path";
+            vertical-stretch: 0;
         }
 
-        GridLayout {
-            spacing: 12px;
+        // One labelled row per control. A HorizontalLayout per row (not a
+        // GridLayout) keeps the label column at a fixed width so extra space
+        // goes into the input: text stays on the left of the field, only the
+        // chevron sits on the right. Reading the window size would close a
+        // Slint binding loop (docs/ui-guide.md).
+        VerticalLayout {
+            spacing: 10px;
+            vertical-stretch: 0;
 
-            Row {
+            HorizontalLayout {
+                spacing: 10px;
+                vertical-stretch: 0;
+
                 FieldLabel {
                     text: "Schema";
+                    vertical-alignment: center;
+                    width: 110px;
+                    horizontal-stretch: 0;
                 }
 
-                FieldLabel {
-                    text: "From table";
-                }
-
-                FieldLabel {
-                    text: "To table";
-                }
-            }
-
-            Row {
-                ComboBox {
-                    min-width: 120px;
-                    model: root.schema-options;
-                    current-index <=> root.selected-schema-index;
-                    selected(value) => {
-                        root.selected-schema = value;
+                TableSelector {
+                    options: root.schema-options;
+                    index <=> root.selected-schema-index;
+                    value <=> root.selected-schema;
+                    picked(value) => {
                         root.select-schema(value);
                     }
                 }
+            }
 
-                ComboBox {
-                    min-width: 120px;
-                    model: root.table-options;
-                    current-index <=> root.source-table-index;
-                    selected(value) => {
-                        root.source-table = value;
-                    }
+            HorizontalLayout {
+                spacing: 10px;
+                vertical-stretch: 0;
+
+                FieldLabel {
+                    text: "From table";
+                    vertical-alignment: center;
+                    width: 110px;
+                    horizontal-stretch: 0;
                 }
 
-                ComboBox {
-                    min-width: 120px;
-                    model: root.table-options;
-                    current-index <=> root.target-table-index;
-                    selected(value) => {
-                        root.target-table = value;
-                    }
+                TableSelector {
+                    options: root.table-options;
+                    index <=> root.source-table-index;
+                    value <=> root.source-table;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 10px;
+                vertical-stretch: 0;
+
+                FieldLabel {
+                    text: "To table";
+                    vertical-alignment: center;
+                    width: 110px;
+                    horizontal-stretch: 0;
+                }
+
+                TableSelector {
+                    options: root.table-options;
+                    index <=> root.target-table-index;
+                    value <=> root.target-table;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 10px;
+                vertical-stretch: 0;
+
+                FieldLabel {
+                    text: "Format";
+                    vertical-alignment: center;
+                    width: 110px;
+                    horizontal-stretch: 0;
+                }
+
+                FormatSelector {
+                    index <=> root.selected-format-index;
+                    value <=> root.selected-format;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 10px;
+                vertical-stretch: 0;
+
+                FieldLabel {
+                    text: "Max links";
+                    vertical-alignment: center;
+                    width: 110px;
+                    horizontal-stretch: 0;
+                }
+
+                MaxLinksBox {
+                    value <=> root.max-links;
                 }
             }
         }
 
         HorizontalLayout {
             spacing: 8px;
-            alignment: stretch;
-
-            FieldLabel {
-                text: "Format";
-                vertical-alignment: center;
-                horizontal-stretch: 0;
-            }
-
-            ComboBox {
-                min-width: 130px;
-                preferred-width: 180px;
-                max-width: 220px;
-                horizontal-stretch: 0;
-                model: ["equation", "sql", "text", "mermaid", "json"];
-                current-index <=> root.selected-format-index;
-                selected(value) => {
-                    root.selected-format = value;
-                }
-            }
-
-            FieldLabel {
-                text: "Max links";
-                vertical-alignment: center;
-                horizontal-stretch: 0;
-            }
-
-            SpinBox {
-                min-width: 88px;
-                max-width: 110px;
-                horizontal-stretch: 0;
-                minimum: 1;
-                maximum: 8;
-                value <=> root.max-links;
-            }
-
-            Rectangle {
-                horizontal-stretch: 1;
-                min-width: 0px;
-            }
+            vertical-stretch: 0;
+            alignment: start;
 
             Button {
                 text: "Find path";
@@ -287,8 +355,8 @@ component ResultPanel inherits Panel {
     in-out property <string> output-text;
     in property <string> selected-format;
 
-    min-width: 320px;
-    min-height: 150px;
+    min-width: 0px;
+    min-height: 140px;
 
     VerticalLayout {
         padding: 16px;
@@ -318,6 +386,8 @@ component ResultPanel inherits Panel {
     }
 }
 
+// ---- Window ----------------------------------------------------------------
+
 export component AppWindow inherits Window {
     title: "Schema Pathfinder";
     background: #f8fafc;
@@ -327,12 +397,17 @@ export component AppWindow inherits Window {
     // the window to a fixed size and defeat every layout constraint below.
     preferred-width: 1280px;
     preferred-height: 820px;
-    min-width: 560px;
-    min-height: 460px;
+    // 640px is the width at which the sidebar (240px) and the result column
+    // (340px) still sit side by side with their padding; 610px keeps the header,
+    // the fixed-height path form (360px) and one result block visible.
+    min-width: 640px;
+    min-height: 610px;
 
-    // Below this width the sidebar no longer fits next to the result panel, so
-    // the whole UI switches to a single scrollable column.
-    property <bool> compact: root.width < 900px;
+    // Nothing in this file reads `root.width` or the screen size: Slint sizes a
+    // resizable window from the layout info of its content, so reading the
+    // width back inside the layout closes a loop. Responsiveness comes from
+    // min/preferred sizes and stretch factors: the right column takes leftover
+    // window width.
 
     in-out property <string> fixture-path;
     in-out property <string> sql-path;
@@ -388,17 +463,21 @@ export component AppWindow inherits Window {
             }
         }
 
-        // Wide layout: sidebar on the left, path and result stacked on the right.
-        if !root.compact: HorizontalLayout {
+        // Workspace: sidebar on the left, path and result stacked on the
+        // right. The right column carries the whole leftover (stretch 1) so
+        // both cards grow with the window. One layout for every window size.
+        HorizontalLayout {
+            vertical-stretch: 1;
             padding: 16px;
             spacing: 16px;
-            vertical-stretch: 1;
 
             SourcePanel {
                 horizontal-stretch: 0;
-                min-width: 280px;
-                preferred-width: 320px;
-                max-width: 380px;
+                // Shrinks first on a narrow window, stops growing on a
+                // large one.
+                min-width: 240px;
+                preferred-width: 340px;
+                max-width: 440px;
                 source-input-label <=> root.source-input-label;
                 source-input-value <=> root.source-input-value;
                 selected-source-kind <=> root.selected-source-kind;
@@ -415,11 +494,11 @@ export component AppWindow inherits Window {
 
             VerticalLayout {
                 horizontal-stretch: 1;
+                min-width: 340px;
                 spacing: 16px;
 
                 PathPanel {
                     vertical-stretch: 0;
-                    compact: false;
                     schema-options: root.schema-options;
                     table-options: root.table-options;
                     selected-schema <=> root.selected-schema;
@@ -441,66 +520,6 @@ export component AppWindow inherits Window {
 
                 ResultPanel {
                     vertical-stretch: 1;
-                    output-text <=> root.output-text;
-                    selected-format: root.selected-format;
-                }
-            }
-        }
-
-        // Narrow layout: one scrollable column so nothing gets clipped.
-        if root.compact: ScrollView {
-            vertical-stretch: 1;
-            vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
-            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
-            viewport-width: self.visible-width;
-            viewport-height: Math.max(self.visible-height, 880px);
-
-            VerticalLayout {
-                padding: 16px;
-                spacing: 16px;
-
-                SourcePanel {
-                    vertical-stretch: 2;
-                    min-height: 300px;
-                    source-input-label <=> root.source-input-label;
-                    source-input-value <=> root.source-input-value;
-                    selected-source-kind <=> root.selected-source-kind;
-                    selected-source-index <=> root.selected-source-index;
-                    databases-text <=> root.databases-text;
-                    tables-text <=> root.tables-text;
-                    select-source(next-kind, current-kind, current-value) => {
-                        root.select-source(next-kind, current-kind, current-value);
-                    }
-                    load-source(kind, value) => {
-                        root.load-source(kind, value);
-                    }
-                }
-
-                PathPanel {
-                    vertical-stretch: 0;
-                    compact: true;
-                    schema-options: root.schema-options;
-                    table-options: root.table-options;
-                    selected-schema <=> root.selected-schema;
-                    selected-schema-index <=> root.selected-schema-index;
-                    source-table <=> root.source-table;
-                    source-table-index <=> root.source-table-index;
-                    target-table <=> root.target-table;
-                    target-table-index <=> root.target-table-index;
-                    selected-format <=> root.selected-format;
-                    selected-format-index <=> root.selected-format-index;
-                    max-links <=> root.max-links;
-                    select-schema(schema) => {
-                        root.select-schema(schema);
-                    }
-                    find-path(schema, from-table, to-table, format, links) => {
-                        root.find-path(schema, from-table, to-table, format, links);
-                    }
-                }
-
-                ResultPanel {
-                    vertical-stretch: 3;
-                    min-height: 220px;
                     output-text <=> root.output-text;
                     selected-format: root.selected-format;
                 }
