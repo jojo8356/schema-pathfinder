@@ -336,3 +336,6 @@ pass before any pull request.
 No license has been declared for this repository yet. Until a `LICENSE` file is
 added, the code remains "all rights reserved" by default. Contact the maintainer
 for any use.
+
+## How it was built
+I designed the FK-graph engine, scoring, and 5 renderers; AI assisted with boilerplate Slint/React scaffolding and wording. I reviewed, tested (231 tests), and fixed all AI suggestions — see `apps/cli-rust/tests/` and commit history.
