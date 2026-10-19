@@ -336,3 +336,6 @@ pull request.
 
 Aucune licence n'est encore déclarée pour ce dépôt. Tant qu'un fichier `LICENSE` n'est pas ajouté,
 le code reste « tous droits réservés » par défaut. Contactez le mainteneur pour tout usage.
+
+## Comment ça a été construit
+J'ai conçu le moteur de graphe FK, le scoring et les 5 renderers ; l'IA m'a assisté pour le boilerplate Slint/React et la rédaction. J'ai relu, testé (231 tests) et corrigé toutes les suggestions de l'IA — voir `apps/cli-rust/tests/` et l'historique des commits.
